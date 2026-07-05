@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask MainframeLore — live Q&amp;A over the CardDemo estate</title>
+<meta name="description" content="Ask a question about the AWS CardDemo COBOL estate and get a cited answer, grounded in parsed source facts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#090C11; --panel:#141A22; --line:#25313F;
+  --amber:#E8A33D; --cyan:#4FE0D6; --cyan-dim:#1F6D67;
+  --slate:#8FA0AF; --bright:#EEF3F7;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--ink);color:var(--slate);font-family:var(--sans);font-size:16px;line-height:1.65;min-height:100vh}
+.wrap{max-width:820px;margin:0 auto;padding:40px 24px 80px}
+a{color:var(--cyan)}
+nav{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--line)}
+.logo{font-family:var(--mono);color:var(--bright);font-size:1rem}
+.logo b{color:var(--amber)}
+nav a{color:var(--slate);font-size:.9rem;text-decoration:none}
+h1{font-family:var(--serif);color:var(--bright);font-size:1.9rem;margin-bottom:10px}
+.sub{color:var(--slate);margin-bottom:28px;font-size:.98rem}
+.sub b{color:var(--cyan)}
+.askbox{display:flex;gap:10px;margin-bottom:10px}
+input[type=text]{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;
+  color:var(--bright);font-family:var(--mono);font-size:.95rem;padding:14px 16px}
+input[type=text]:focus{outline:2px solid var(--cyan);outline-offset:1px}
+button{background:var(--amber);color:var(--ink);border:none;border-radius:6px;font-family:var(--mono);
+  font-size:.95rem;font-weight:500;padding:14px 24px;cursor:pointer}
+button:hover{background:#f0b458}
+button:disabled{opacity:.5;cursor:default}
+.examples{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:36px}
+.ex{font-family:var(--mono);font-size:.8rem;color:var(--cyan);background:transparent;
+  border:1px solid var(--cyan-dim);border-radius:14px;padding:6px 14px;cursor:pointer}
+.ex:hover{border-color:var(--cyan)}
+#result{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:28px;
+  display:none;white-space:pre-wrap;font-size:.96rem;line-height:1.75}
+#result.show{display:block}
+#result code{font-family:var(--mono);background:#0C1119;padding:1px 6px;border-radius:3px;font-size:.88em}
+#result pre{background:#0C1119;border:1px solid var(--line);border-radius:6px;padding:12px 14px;overflow-x:auto;margin:10px 0}
+#result h2,#result h3{font-family:var(--serif);color:var(--bright);margin:14px 0 8px}
+.hits{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:.78rem;color:var(--cyan-dim)}
+.hits div{margin-bottom:4px}
+.status{color:var(--slate);font-family:var(--mono);font-size:.85rem;margin-bottom:16px}
+.err{color:#e08a8a}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo"><b>//</b>MAINFRAME·LORE</span>
+  <a href="../../">← Back to site</a>
+</nav>
+<div class="wrap">
+  <h1>Ask the estate</h1>
+  <p class="sub">Live Q&amp;A over <b>AWS CardDemo</b> — 44 programs, 46 batch jobs, fully parsed and indexed.
+  Every answer cites program, paragraph, and line.</p>
+
+  <div class="askbox">
+    <input type="text" id="q" placeholder="e.g. where is interest calculated?" autocomplete="off">
+    <button id="ask">Ask</button>
+  </div>
+  <div class="examples">
+    <button class="ex">Where is interest calculated?</button>
+    <button class="ex">Which jobs write to the transaction file?</button>
+    <button class="ex">What happens when a card fails validation?</button>
+    <button class="ex">What does CBACT04C do?</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div id="result"></div>
+</div>
+
+<script>
+const WORKER_URL = "https://mainframelore-qa.vaseemakrams55.workers.dev/";
+const q = document.getElementById("q"), askBtn = document.getElementById("ask"),
+      result = document.getElementById("result"), status = document.getElementById("status");
+
+function escapeHtml(s){
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function renderMarkdownish(text){
+  let html = escapeHtml(text);
+  html = html.replace(/```([\s\S]*?)```/g, (_, code) => "<pre>" + code.trim() + "</pre>");
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/^### (.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^## (.+)$/gm, "<h2>$1</h2>");
+  return html;
+}
+
+async function ask(question){
+  if (!question.trim()) return;
+  askBtn.disabled = true;
+  status.textContent = "Searching the estate and asking Claude…";
+  status.className = "status";
+  result.className = "";
+  try {
+    const resp = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || "Request failed");
+    result.innerHTML = renderMarkdownish(data.answer || "No answer returned.");
+    if (data.hits && data.hits.length) {
+      const hitsHtml = data.hits.map(h => `<div>[${h.ref} @ ${h.path}:${h.line}]</div>`).join("");
+      result.innerHTML += `<div class="hits">Sources retrieved:${hitsHtml}</div>`;
+    }
+    result.classList.add("show");
+    status.textContent = "";
+  } catch (e) {
+    status.textContent = "Error: " + e.message + " — try again in a moment.";
+    status.className = "status err";
+  } finally {
+    askBtn.disabled = false;
+  }
+}
+
+askBtn.addEventListener("click", () => ask(q.value));
+q.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(q.value); });
+document.querySelectorAll(".ex").forEach(btn => {
+  btn.addEventListener("click", () => { q.value = btn.textContent; ask(btn.textContent); });
+});
+</script>
+</body>
+</html>
