@@ -1953,24 +1953,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBSTM03B
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1987,58 +1969,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3024,47 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3083,6 +2972,87 @@
 <h1 id="cbstm03b">CBSTM03B</h1>
 <p>Source: <code>cbl/CBSTM03B.CBL</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbstm03b-file-access-subroutine">CBSTM03B — File Access Subroutine</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBSTM03B is a batch COBOL subroutine used by the CardDemo application's statement-generation process. It provides a single, generic entry point for opening, reading, and closing four VSAM-indexed master/transaction files (transactions, card cross-reference, customer, and account). Rather than performing its own business logic, it acts as a low-level I/O service that other programs (e.g., a statement-creation program) call to fetch records by key or in sequence.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven entirely by parameters passed in via <code>LINKAGE SECTION</code> (<code>LK-M03B-AREA</code>), not by any internal control flow of its own:</p>
+<ul>
+<li><strong>0000-START</strong> — the single entry point (<code>PROCEDURE DIVISION USING LK-M03B-AREA</code>). It inspects <code>LK-M03B-DD</code> (the target file/DD name) and dispatches to one of four paragraph ranges via <code>EVALUATE</code>:</li>
+<li><code>'TRNXFILE'</code> → <code>1000-TRNXFILE-PROC</code> thru <code>1999-EXIT</code></li>
+<li><code>'XREFFILE'</code> → <code>2000-XREFFILE-PROC</code> thru <code>2999-EXIT</code></li>
+<li><code>'CUSTFILE'</code> → <code>3000-CUSTFILE-PROC</code> thru <code>3999-EXIT</code></li>
+<li><code>'ACCTFILE'</code> → <code>4000-ACCTFILE-PROC</code> thru <code>4999-EXIT</code></li>
+<li>
+<p>Any other value falls through to <strong>9999-GOBACK</strong>, ending the call with no action taken.</p>
+</li>
+<li>
+<p>Each of the four <code>xxx0-...-PROC</code> paragraphs follows the same pattern, keyed off the operation flag <code>LK-M03B-OPER</code> (via 88-levels <code>M03B-OPEN</code>, <code>M03B-READ</code>, <code>M03B-READ-K</code>, <code>M03B-CLOSE</code>, <code>M03B-WRITE</code>, <code>M03B-REWRITE</code>):</p>
+</li>
+<li><strong>OPEN</strong> ('O') — opens the file <code>INPUT</code>.</li>
+<li><strong>READ</strong> ('R') — sequential read (only supported for <code>TRNXFILE</code>/<code>1000-TRNXFILE-PROC</code> and <code>XREFFILE</code>/<code>2000-XREFFILE-PROC</code>, matching their <code>ACCESS MODE IS SEQUENTIAL</code>).</li>
+<li><strong>READ-K</strong> ('K') — keyed random read (only supported for <code>CUSTFILE</code>/<code>3000-CUSTFILE-PROC</code> and <code>ACCTFILE</code>/<code>4000-ACCTFILE-PROC</code>, matching their <code>ACCESS MODE IS RANDOM</code>); the key is built by moving <code>LK-M03B-KEY(1:LK-M03B-KEY-LN)</code> into the file's record key field before the read.</li>
+<li><strong>CLOSE</strong> ('C') — closes the file.</li>
+<li>
+<p>After the operation, control drops to the paragraph's <code>x900-EXIT</code>, which moves the file's two-byte <code>FILE STATUS</code> field into <code>LK-M03B-RC</code> for the caller to inspect, then falls into <code>x999-EXIT</code> (a bare <code>EXIT</code>) and returns to <code>9999-GOBACK</code>/<code>GOBACK</code>.</p>
+</li>
+<li>
+<p>The 88-levels <code>M03B-WRITE</code> and <code>M03B-REWRITE</code> are defined but <strong>no paragraph implements them</strong> — passing those operation codes results in none of the <code>IF</code> conditions matching, so the paragraph does nothing except fall through to move the (unchanged) file status into <code>LK-M03B-RC</code>.</p>
+</li>
+</ul>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / DD</th>
+<th>Access mode</th>
+<th>Key</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TRNX-FILE</code> (DD <code>TRNXFILE</code>)</td>
+<td>Indexed, sequential, input only</td>
+<td><code>FD-TRNXS-ID</code> (card no. + transaction id)</td>
+<td>Transaction records read sequentially for statement processing.</td>
+</tr>
+<tr>
+<td><code>XREF-FILE</code> (DD <code>XREFFILE</code>)</td>
+<td>Indexed, sequential, input only</td>
+<td><code>FD-XREF-CARD-NUM</code></td>
+<td>Card-to-account cross-reference data, read sequentially.</td>
+</tr>
+<tr>
+<td><code>CUST-FILE</code> (DD <code>CUSTFILE</code>)</td>
+<td>Indexed, random, input only</td>
+<td><code>FD-CUST-ID</code> (9-byte customer id)</td>
+<td>Customer master data, looked up by key on demand.</td>
+</tr>
+<tr>
+<td><code>ACCT-FILE</code> (DD <code>ACCTFILE</code>)</td>
+<td>Indexed, random, input only</td>
+<td><code>FD-ACCT-ID</code> (11-digit account id)</td>
+<td>Account master data, looked up by key on demand.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Linkage interface (<code>LK-M03B-AREA</code>)</strong> — this is the program's true "input/output" contract with its caller:
+- <code>LK-M03B-DD</code> — which file to operate on (<code>TRNXFILE</code>, <code>XREFFILE</code>, <code>CUSTFILE</code>, <code>ACCTFILE</code>).
+- <code>LK-M03B-OPER</code> — operation code (<code>O</code>=open, <code>R</code>=sequential read, <code>K</code>=keyed read, <code>C</code>=close; <code>W</code>/<code>Z</code> defined but unused).
+- <code>LK-M03B-KEY</code> / <code>LK-M03B-KEY-LN</code> — key value and length, used only for keyed reads (<code>CUST-FILE</code>, <code>ACCT-FILE</code>).
+- <code>LK-M03B-FLDT</code> — 1000-byte buffer the record is read into (<code>READ ... INTO LK-M03B-FLDT</code>).
+- <code>LK-M03B-RC</code> — 2-byte return code, set from the file's <code>FILE STATUS</code> after each operation, for the caller to check success/failure.</p>
+<p>No CICS commands, SQL tables, copybooks, or subordinate program calls are used — this is a purely batch, self-contained VSAM I/O module.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No explicit error handling.</strong> None of the <code>OPEN</code>, <code>READ</code>, or <code>CLOSE</code> statements have <code>INVALID KEY</code>, <code>AT END</code>, or <code>NOT ON SIZE ERROR</code>/error clauses. The only feedback to the caller is the raw file-status code copied into <code>LK-M03B-RC</code> after the fact — callers must check this themselves; the subroutine itself never branches on failure.</li>
+<li><strong>Silent no-op for unsupported operations.</strong> Requesting <code>WRITE</code> ('W') or <code>REWRITE</code> ('Z') — or a <code>READ</code> on the random-access files, or <code>READ-K</code> on the sequential files — matches none of the <code>IF</code> conditions in the relevant paragraph, so the routine does nothing but still returns a (stale/unchanged) status code. This could mask caller bugs.</li>
+<li><strong>Unknown DD name is silently ignored.</strong> If <code>LK-M03B-DD</code> doesn't match one of the four expected values, <code>EVALUATE ... WHEN OTHER</code> jumps straight to <code>9999-GOBACK</code> — no error is raised, and no status is returned in <code>LK-M03B-RC</code>.</li>
+<li><strong>All files opened <code>INPUT</code> only</strong> — this module is read-only despite the presence of <code>WRITE</code>/<code>REWRITE</code> operation flags in the linkage area, suggesting either dead/reserved code or functionality removed/not yet implemented.</li>
+<li><strong>Fixed record layouts.</strong> Buffer sizes are hard-coded per file (e.g., <code>FD-ACCT-DATA PIC X(289)</code>, <code>LK-M03B-FLDT PIC X(1000)</code>) — any mismatch between actual record layouts (defined elsewhere, likely in copybooks used by the caller) and these sizes isn't validated here.</li>
+<li><strong>State is not reused across calls in a documented way</strong> — each call is a single discrete operation (open/read/close) driven by the linkage parameters; the caller is responsible for sequencing OPEN → (READ/READ-K)* → CLOSE correctly, since this subroutine enforces no state machine or call ordering itself.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

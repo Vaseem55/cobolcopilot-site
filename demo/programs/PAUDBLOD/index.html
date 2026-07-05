@@ -2877,24 +2877,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PAUDBLOD
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2911,80 +2893,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3046,69 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3127,6 +2972,71 @@
 <h1 id="paudblod">PAUDBLOD</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/PAUDBLOD.CBL</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="paudblod-program-documentation">PAUDBLOD — Program Documentation</h1>
+<h2 id="purpose">Purpose</h2>
+<p>PAUDBLOD is a batch data-load utility that reloads a Pending Authorization IMS database from two sequential extract files. It reads "root" segment records (pending authorization summary) and "child" segment records (pending authorization details) and re-inserts them into the IMS database via <code>CBLTDLI</code> calls, effectively rebuilding the hierarchical database from flat-file input. This is typically used in reload/restore or migration scenarios where a previously unloaded database is being restored.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>MAIN-PARA</code>, which runs sequentially through four stages:</p>
+<ol>
+<li>
+<p><strong>1000-INITIALIZE</strong> — Captures the current date/day (for display/logging only) and opens both input files, <code>INFILE1</code> and <code>INFILE2</code>. If either file fails to open (status not spaces/<code>'00'</code>), it displays an error and calls <code>9999-ABEND</code>, which sets <code>RETURN-CODE</code> to 16 and terminates the program (<code>GOBACK</code>).</p>
+</li>
+<li>
+<p><strong>2000-READ-ROOT-SEG-FILE</strong> (looped until end-of-file) — Reads one record from <code>INFILE1</code>, moves it into the <code>PENDING-AUTH-SUMMARY</code> structure, and calls <code>2100-INSERT-ROOT-SEG</code>, which issues an IMS <code>ISRT</code> (insert) call via <code>CBLTDLI</code> using <code>ROOT-UNQUAL-SSA</code> to insert the root segment (<code>PAUTSUM0</code>). Success, duplicate (<code>'II'</code>), or failure status is checked; any other non-space/non-<code>'II'</code> status triggers <code>9999-ABEND</code>.</p>
+</li>
+<li>
+<p><strong>3000-READ-CHILD-SEG-FILE</strong> (looped until end-of-file) — Reads one record from <code>INFILE2</code> (containing a <code>ROOT-SEG-KEY</code> and a child detail record). If <code>ROOT-SEG-KEY</code> is numeric, it moves the key into the SSA qualifier and the detail record into <code>PENDING-AUTH-DETAILS</code>, then calls <code>3100-INSERT-CHILD-SEG</code>. This paragraph first does an IMS <code>GU</code> (get-unique) call qualified on <code>ACCNTID</code> to locate/verify the matching root segment. On success it calls <code>3200-INSERT-IMS-CALL</code>, which performs the actual <code>ISRT</code> of the child segment (<code>PAUTDTL1</code>) under that root. Any unexpected PCB status from either the GU or ISRT call causes <code>9999-ABEND</code>.</p>
+</li>
+<li>
+<p><strong>4000-FILE-CLOSE</strong> — Closes both files, displaying errors (but not abending) if close status is bad.</p>
+</li>
+</ol>
+<p>After all four stages complete, <code>MAIN-PARA</code> issues <code>GOBACK</code> to end normally.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INFILE1</code> (DD <code>INFILE1</code>)</td>
+<td>Sequential input file</td>
+<td>Flat-file extract of root segments (<code>PENDING-AUTH-SUMMARY</code>, layout <code>CIPAUSMY</code>), 100-byte records. Read record-by-record in <code>2000-READ-ROOT-SEG-FILE</code>.</td>
+</tr>
+<tr>
+<td><code>INFILE2</code> (DD <code>INFILE2</code>)</td>
+<td>Sequential input file</td>
+<td>Flat-file extract of child segments, each record carrying a <code>ROOT-SEG-KEY</code> (packed decimal, S9(11) COMP-3) plus a 200-byte detail record (<code>PENDING-AUTH-DETAILS</code>, layout <code>CIPAUDTY</code>). Read in <code>3000-READ-CHILD-SEG-FILE</code>.</td>
+</tr>
+<tr>
+<td>IMS Database (via <code>PAUTBPCB</code> PCB, <code>CBLTDLI</code> calls)</td>
+<td>IMS DB output</td>
+<td>Target hierarchical database with root segment <code>PAUTSUM0</code> (Pending Authorization Summary) and child segment <code>PAUTDTL1</code> (Pending Authorization Details). Data is inserted (<code>ISRT</code>) and looked up (<code>GU</code>) through this PCB.</td>
+</tr>
+<tr>
+<td><code>IO-PCB-MASK</code> / <code>PAUTBPCB</code></td>
+<td>Linkage section parameters</td>
+<td>I/O PCB mask and the program's IMS PCB, passed in via <code>ENTRY 'DLITCBL'</code>/<code>PROCEDURE DIVISION USING</code>. No CICS commands or SQL tables are used — this is a pure batch/IMS DL/I program.</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables or CICS commands are used by this program (confirmed by parser: empty <code>sql_tables</code> and <code>cics_commands</code> lists).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded abend code:</strong> <code>9999-ABEND</code> always sets <code>RETURN-CODE</code> to <code>16</code> regardless of the actual error, so downstream JCL/step conditions can't distinguish which failure occurred from the return code alone — the actual cause is only visible in the <code>DISPLAY</code> messages in the job log.</li>
+<li><strong>Inconsistent error handling severity:</strong> Open/insert/GU failures cause an abend, but close failures (<code>4000-FILE-CLOSE</code>) only produce a <code>DISPLAY</code> message and processing continues — files may be left in an inconsistent state without a nonzero return code from this specific failure.</li>
+<li><strong>Silent skip on non-numeric key:</strong> In <code>3000-READ-CHILD-SEG-FILE</code>, if <code>ROOT-SEG-KEY</code> is not numeric, the record is silently skipped (no insert, no error message) — this could mask malformed input.</li>
+<li><strong>Duplicate segments tolerated:</strong> Both root insert (<code>2100-INSERT-ROOT-SEG</code>) and child insert (<code>3200-INSERT-IMS-CALL</code>) treat IMS status <code>'II'</code> (duplicate segment) as acceptable, not an error — meaning reloads can be run against a partially-loaded database without failing, but this could also mask unexpected duplicate data.</li>
+<li><strong>Dead/vestigial code:</strong> Several <code>WS-VARIABLES</code> fields (e.g., <code>WS-EXPIRY-DAYS</code>, <code>WS-DAY-DIFF</code>, <code>WS-NO-CHKP</code>, checkpoint ID fields <code>WK-CHKPT-ID</code>) and the <code>PRM-INFO</code> structure are declared but never referenced in the procedure logic shown — likely leftover from a related program or an unused checkpoint/restart feature that was never implemented here.</li>
+<li><strong>Extensive commented-out code:</strong> Many <code>DISPLAY</code> statements and some logic (e.g., PSB name/PCB offset comments, date adjustment lines under <code>3100-INSERT-CHILD-SEG</code>) are commented out, suggesting this program was adapted/copied from another (possibly the "IMSUNLOD" program, per <code>WS-PGMNAME</code> default value) and not fully cleaned up.</li>
+<li><strong>No checkpoint/restart logic</strong>, despite variable names suggesting it was planned (<code>WK-CHKPT-ID</code>, <code>P-CHKP-FREQ</code>, <code>P-CHKP-DIS-FREQ</code> in <code>PRM-INFO</code>) — if this program processes large volumes, a mid-run failure requires a full rerun from the beginning of both files.</li>
+<li><strong>CALL parameters <code>FAIL</code>, <code>THRU</code>, <code>TO</code></strong> appearing in the parser's <code>calls</code> list are almost certainly false positives from COBOL keywords (e.g., <code>PERFORM ... THRU</code>, <code>MOVE ... TO</code>) rather than actual program calls — the only real external call is <code>CBLTDLI</code> (the standard IMS DL/I call interface).</li>
+<li><strong>Copybooks used:</strong> <code>CIPAUSMY</code> (root segment layout), <code>CIPAUDTY</code> (child segment layout), <code>IMSFUNCS</code> (IMS function code constants like <code>FUNC-ISRT</code>, <code>FUNC-GU</code>), and <code>PAUTBPCB</code> (PCB mask layout) — the actual segment/field structures are defined in these copybooks and not visible in this source file.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

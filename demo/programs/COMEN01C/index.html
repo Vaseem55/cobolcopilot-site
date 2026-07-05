@@ -2373,24 +2373,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COMEN01C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2407,69 +2389,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,113 @@
 <h1 id="comen01c">COMEN01C</h1>
 <p>Source: <code>cbl/COMEN01C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="comen01c-main-menu-program-regular-users">COMEN01C — Main Menu Program (Regular Users)</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COMEN01C implements the main menu screen for regular (non-admin) users of the CardDemo application. It displays a list of available menu options, validates the user's selection, and transfers control (<code>XCTL</code>) to the target program associated with the chosen option. It also enforces basic access control, preventing regular users from selecting admin-only options.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>MAIN-PARA</code>, which behaves differently depending on whether the program is being entered fresh or re-entered from a previous transaction:</p>
+<ul>
+<li><strong>First entry</strong> (<code>EIBCALEN = 0</code>): No commarea exists yet, so the program sets <code>CDEMO-FROM-PROGRAM</code> to <code>COSGN00C</code> and performs <code>RETURN-TO-SIGNON-SCREEN</code>, sending control back to the sign-on program. This suggests COMEN01C expects to always be entered <em>with</em> a commarea from the sign-on flow; a direct/cold start is treated as an error path back to sign-on.</li>
+<li><strong>Re-entry with commarea</strong>: The incoming commarea is copied into <code>CARDDEMO-COMMAREA</code>.</li>
+<li>If this is the <em>first</em> pass for this session (<code>NOT CDEMO-PGM-REENTER</code>), the reentry flag is set, the output map is initialized to <code>LOW-VALUES</code>, and <code>SEND-MENU-SCREEN</code> is performed to display the menu for the first time.</li>
+<li>Otherwise, <code>RECEIVE-MENU-SCREEN</code> reads the user's input from the terminal, and <code>EIBAID</code> (the key pressed) is evaluated:<ul>
+<li><strong>ENTER</strong> → <code>PROCESS-ENTER-KEY</code> validates and processes the selected menu option.</li>
+<li><strong>PF3</strong> → sets <code>CDEMO-TO-PROGRAM</code> to <code>COSGN00C</code> and performs <code>RETURN-TO-SIGNON-SCREEN</code> (log off back to sign-on).</li>
+<li><strong>Any other key</strong> → sets the error flag, shows an "invalid key" message, and redisplays the menu via <code>SEND-MENU-SCREEN</code>.</li>
+</ul>
+</li>
+</ul>
+<p><code>PROCESS-ENTER-KEY</code> extracts the option number typed by the user, right-justifies it, and pads blanks with <code>'0'</code>. It then:
+1. Validates the option is numeric, non-zero, and within <code>CDEMO-MENU-OPT-COUNT</code>.
+2. Checks the option's user-type restriction (<code>CDEMO-MENU-OPT-USRTYPE</code>) against the caller's type; if the user is a regular user (<code>CDEMO-USRTYP-USER</code>) and the option is admin-only (<code>'A'</code>), access is denied.
+3. If validation passes, it evaluates the target program name for the selected option:
+   - If the program is <code>COPAUS0C</code>, it first issues <code>EXEC CICS INQUIRE PROGRAM</code> (with <code>NOHANDLE</code>) to check the program is installed before doing an <code>XCTL</code>. If not found, it shows a "not installed" message in red.
+   - If the program name starts with <code>DUMMY</code>, it shows a "coming soon" message in green instead of transferring control (placeholder/unimplemented options).
+   - Otherwise, it sets <code>CDEMO-FROM-TRANID</code>/<code>CDEMO-FROM-PROGRAM</code>, clears <code>CDEMO-PGM-CONTEXT</code>, and performs an unconditional <code>XCTL</code> to the target program, passing the commarea along.
+4. After the <code>EVALUATE</code>, <code>SEND-MENU-SCREEN</code> is performed again to redisplay the menu (relevant when an error/message occurred or when the XCTL falls through, e.g. for the DUMMY/not-installed cases).</p>
+<p><code>SEND-MENU-SCREEN</code> performs <code>POPULATE-HEADER-INFO</code> (title, date/time, transaction/program name) and <code>BUILD-MENU-OPTIONS</code> (formats each menu entry as <code>"&lt;num&gt;. &lt;name&gt;"</code> into fields <code>OPTN001O</code>–<code>OPTN012O</code>), then sends the <code>COMEN1A</code> map from mapset <code>COMEN01</code> with <code>ERASE</code>.</p>
+<p><code>RECEIVE-MENU-SCREEN</code> reads the <code>COMEN1A</code> map input into <code>COMEN1AI</code> using <code>RESP</code>/<code>RESP2</code> (response codes captured but, notably, not checked afterward).</p>
+<p>Finally, <code>MAIN-PARA</code> always ends with <code>EXEC CICS RETURN TRANSID(WS-TRANID) COMMAREA(CARDDEMO-COMMAREA)</code>, keeping the user in a pseudo-conversational loop on transaction <code>CM00</code> until they navigate away via XCTL.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DFHCOMMAREA</code> (<code>CARDDEMO-COMMAREA</code>)</td>
+<td>CICS commarea (linkage section)</td>
+<td>Carries session/navigation state between programs: reentry flag, from/to program &amp; transaction, menu option table (<code>CDEMO-MENU-OPT-*</code>), user type, and program context. Passed in and out via <code>RETURN</code>/<code>XCTL</code>.</td>
+</tr>
+<tr>
+<td>Map <code>COMEN1A</code> / mapset <code>COMEN01</code></td>
+<td>BMS screen (via <code>COMEN1AI</code>/<code>COMEN1AO</code>)</td>
+<td>Terminal I/O: displays header (title, date/time, tran/pgm name), 12 menu option lines (<code>OPTN001O</code>–<code>OPTN012O</code>), and error message (<code>ERRMSGO</code>); receives the typed option number (<code>OPTIONI</code>).</td>
+</tr>
+<tr>
+<td>Copybook <code>COCOM01Y</code></td>
+<td>Working storage</td>
+<td>Common CardDemo commarea layout (likely defines <code>CARDDEMO-COMMAREA</code>, <code>CDEMO-*</code> fields, user-type flags).</td>
+</tr>
+<tr>
+<td>Copybook <code>COMEN02Y</code></td>
+<td>Working storage</td>
+<td>Menu option table definitions (<code>CDEMO-MENU-OPT-*</code>: name, program name, user-type restriction, count).</td>
+</tr>
+<tr>
+<td>Copybook <code>COMEN01</code></td>
+<td>Working storage</td>
+<td>Map layout for <code>COMEN1A</code> (<code>COMEN1AI</code>/<code>COMEN1AO</code> fields).</td>
+</tr>
+<tr>
+<td>Copybook <code>COTTL01Y</code></td>
+<td>Working storage</td>
+<td>Title constants (<code>CCDA-TITLE01</code>/<code>02</code>).</td>
+</tr>
+<tr>
+<td>Copybook <code>CSDAT01Y</code></td>
+<td>Working storage</td>
+<td>Date/time layout used for header (<code>WS-CURDATE-*</code>, <code>WS-CURTIME-*</code>).</td>
+</tr>
+<tr>
+<td>Copybook <code>CSMSG01Y</code></td>
+<td>Working storage</td>
+<td>Standard message constants (e.g., <code>CCDA-MSG-INVALID-KEY</code>).</td>
+</tr>
+<tr>
+<td>Copybook <code>CSUSR01Y</code></td>
+<td>Working storage</td>
+<td>User-related fields (referenced, but the two <code>WS-USER-ID</code>/<code>SEC-USR-TYPE</code> moves are commented out — see below).</td>
+</tr>
+<tr>
+<td>Copybooks <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Working storage</td>
+<td>CICS standard AID key and BMS attribute constants.</td>
+</tr>
+<tr>
+<td>Target programs (<code>COSGN00C</code>, <code>COPAUS0C</code>, others via <code>CDEMO-MENU-OPT-PGMNAME</code>)</td>
+<td>Called via <code>XCTL</code></td>
+<td>Sign-on program and business-function programs invoked from the menu. No static <code>CALL</code>s — all navigation is dynamic CICS <code>XCTL</code> based on table-driven program names.</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables and no batch files are used — this is a pure CICS/BMS transaction program (matches parser facts: empty <code>sql_tables</code>/<code>files</code>).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Cold-start handling</strong>: An <code>EIBCALEN = 0</code> entry (no commarea) is treated as invalid and simply routes the user back to <code>COSGN00C</code>, rather than displaying an error — worth confirming this is the intended behavior for direct transaction entry (e.g., typing <code>CM00</code> at a blank screen).</li>
+<li><strong>Unchecked RECEIVE response</strong>: <code>RECEIVE-MENU-SCREEN</code> captures <code>RESP</code>/<code>RESP2</code> into <code>WS-RESP-CD</code>/<code>WS-REAS-CD</code> but the code never inspects them afterward — a mapfail or other error from the RECEIVE is silently ignored, which could lead to processing on stale/empty input data.</li>
+<li><strong>Hard-coded program names</strong>: <code>COSGN00C</code> (sign-on) and <code>COPAUS0C</code> are hard-coded literals in the logic. <code>COPAUS0C</code> gets special treatment (an <code>INQUIRE PROGRAM</code> existence check before <code>XCTL</code>) that no other option receives — an inconsistency worth noting for maintainers, since other options assume the target program is always present.</li>
+<li><strong><code>DUMMY</code>-prefixed programs</strong>: Any menu option whose program name starts with <code>DUMMY</code> is treated as a "coming soon" placeholder and never actually XCTL'd — this is a naming convention baked into the code rather than a flag, so renaming a placeholder program without the <code>DUMMY</code> prefix would change behavior.</li>
+<li><strong>Dead/commented-out code</strong>: In <code>PROCESS-ENTER-KEY</code>, the lines <code>MOVE WS-USER-ID TO CDEMO-USER-ID</code> and <code>MOVE SEC-USR-TYPE TO CDEMO-USER-TYPE</code> are commented out, meaning user ID/type are <strong>not</strong> refreshed into the commarea before XCTL in the "OTHER" (normal) branch — the called program relies on whatever was already set in the commarea from a prior program.</li>
+<li><strong>Input parsing quirk</strong>: The option number is derived by scanning <code>OPTIONI</code> backward for the last non-space character, then right-justifying and replacing remaining spaces with <code>'0'</code> via <code>INSPECT</code>. This means a single blank input could become <code>"00"</code> and correctly fail numeric/zero validation, but the logic is easy to misread and worth double-checking against edge cases (e.g., partially blank input).</li>
+<li><strong>Access control is table-driven but coarse</strong>: Admin-only restriction is a simple single-character check (<code>CDEMO-MENU-OPT-USRTYPE(WS-OPTION) = 'A'</code>) combined with <code>CDEMO-USRTYP-USER</code>; the actual user-type values and menu table contents live in copybooks (<code>COMEN02Y</code>, <code>COCOM01Y</code>) not shown here, so full validation logic can't be confirmed from this source alone.</li>
+<li><strong>Fixed 12-option limit</strong>: <code>BUILD-MENU-OPTIONS</code> only handles menu positions 1–12 (<code>OPTN001O</code>–<code>OPTN012O</code>) via a hard-coded <code>EVALUATE</code>; any <code>CDEMO-MENU-OPT-COUNT</code> greater than 12 would silently fall to <code>WHEN OTHER … CONTINUE</code> and not be displayed.</li>
+<li><strong>Transaction ID hard-coded</strong>: <code>WS-TRANID</code> is fixed to <code>'CM00'</code> and used both for the <code>RETURN TRANSID</code> and for setting <code>CDEMO-FROM-TRANID</code> — no dynamic lookup.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>INQUIRE</code>, <code>XCTL</code>, <code>SEND</code>, <code>RECEIVE</code></p>
 <h2 id="copybooks">Copybooks</h2>

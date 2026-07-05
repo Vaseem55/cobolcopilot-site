@@ -1813,24 +1813,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBCUS01C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1847,91 +1829,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,78 @@
 <h1 id="cbcus01c">CBCUS01C</h1>
 <p>Source: <code>cbl/CBCUS01C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbcus01c-customer-file-reader">CBCUS01C — Customer File Reader</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBCUS01C is a batch COBOL program from the CardDemo application that reads a customer master file (VSAM KSDS) sequentially and prints (via <code>DISPLAY</code>) each customer record to the job log/output. It appears to be a simple diagnostic or extract utility for reviewing customer file contents rather than a program that performs any business calculations or updates. It is invoked as step <code>READCUST.STEP05</code> in a batch job.</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>Main flow (Procedure Division, unnamed top-level paragraph)</strong>:</li>
+<li>Displays a start-of-execution message.</li>
+<li>Calls <code>0000-CUSTFILE-OPEN</code> to open the customer file.</li>
+<li>Loops with <code>PERFORM UNTIL END-OF-FILE = 'Y'</code>, calling <code>1000-CUSTFILE-GET-NEXT</code> to read each record and displaying <code>CUSTOMER-RECORD</code> for every record successfully read.</li>
+<li>Calls <code>9000-CUSTFILE-CLOSE</code> to close the file.</li>
+<li>
+<p>Displays an end-of-execution message and terminates with <code>GOBACK</code>.</p>
+</li>
+<li>
+<p><strong><code>0000-CUSTFILE-OPEN</code></strong> — Opens <code>CUSTFILE-FILE</code> for input. Checks the file status; if not <code>'00'</code> (success), it sets an error result, displays the I/O status via <code>Z-DISPLAY-IO-STATUS</code>, and abends via <code>Z-ABEND-PROGRAM</code>.</p>
+</li>
+<li>
+<p><strong><code>1000-CUSTFILE-GET-NEXT</code></strong> — Reads the next record from <code>CUSTFILE-FILE</code> into <code>CUSTOMER-RECORD</code> (defined in copybook <code>CVCUS01Y</code>). It also performs a redundant <code>DISPLAY CUSTOMER-RECORD</code> inside this paragraph (the record is displayed here <strong>and again</strong> in the main loop — see "Things to know"). Status <code>'00'</code> means success; status <code>'10'</code> means end-of-file (sets <code>END-OF-FILE</code> to <code>'Y'</code>); any other status triggers an error display and abend.</p>
+</li>
+<li>
+<p><strong><code>9000-CUSTFILE-CLOSE</code></strong> — Closes the file, checking status the same way as open; any failure leads to error display and abend.</p>
+</li>
+<li>
+<p><strong><code>Z-ABEND-PROGRAM</code></strong> — Displays <code>'ABENDING PROGRAM'</code>, sets a hard-coded abend code (<code>ABCODE = 999</code>) and timing value (<code>0</code>), then calls the LE runtime service <code>CEE3ABD</code> to abnormally terminate the program.</p>
+</li>
+<li>
+<p><strong><code>Z-DISPLAY-IO-STATUS</code></strong> — Formats and displays the VSAM file status for diagnostics. If the raw status is non-numeric or the first byte is <code>'9'</code> (indicating an extended/VSAM-specific status), it decodes the second status byte as a binary value into a 4-digit numeric display (<code>NNNN</code>); otherwise it simply zero-pads the two-character status into a 4-digit display.</p>
+</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CUSTFILE-FILE</code> / DD <code>CUSTFILE</code></td>
+<td>Input file (VSAM KSDS, indexed, sequential access)</td>
+<td>Customer master file. Record key is <code>FD-CUST-ID</code> (9-digit numeric). Record layout: 9-digit customer ID + 491-byte data field (<code>FD-CUST-DATA</code>).</td>
+</tr>
+<tr>
+<td><code>CVCUS01Y</code></td>
+<td>Copybook</td>
+<td>Defines <code>CUSTOMER-RECORD</code>, the working-storage layout into which each customer record is read and displayed. Full field-level structure is not shown in the extracted source, so exact business fields within the customer record are undocumented here.</td>
+</tr>
+<tr>
+<td><code>CEE3ABD</code></td>
+<td>External call (LE service)</td>
+<td>Used only for abnormal termination (abend) when a file I/O error occurs.</td>
+</tr>
+<tr>
+<td>SYSOUT / console (<code>DISPLAY</code>)</td>
+<td>Output</td>
+<td>All customer records are printed via <code>DISPLAY</code>; this is effectively a "report" output, but no separate report file is defined in this program.</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables or CICS commands are used — this is a batch, non-CICS, non-DB2 program relying solely on VSAM file access.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No error-tolerant design</strong>: any file status other than <code>'00'</code> (success) or <code>'10'</code> (EOF, only checked in the read paragraph) causes an immediate abend via <code>CEE3ABD</code> with hard-coded abend code <code>999</code>. There is no retry or recovery logic.</li>
+<li><strong>Hard-coded abend values</strong>: <code>ABCODE</code> is always <code>999</code> and <code>TIMING</code> is always <code>0</code> in <code>Z-ABEND-PROGRAM</code>, regardless of the actual error — this makes it impossible to distinguish open/read/close failures from the abend code alone (though <code>Z-DISPLAY-IO-STATUS</code> prints the underlying file status before abending).</li>
+<li><strong>Duplicate record display</strong>: <code>CUSTOMER-RECORD</code> is displayed twice for each successfully read record — once inside <code>1000-CUSTFILE-GET-NEXT</code> and again in the main paragraph's loop. This looks like a bug/redundancy rather than intentional double output, though it's confirmed by the source as written.</li>
+<li><strong>EOF handling relies on status <code>'10'</code></strong>: standard COBOL/VSAM convention, but if the file returns a different "no more records" status, the program would instead treat it as a fatal error and abend rather than complete normally.</li>
+<li><strong>File status decoding logic</strong> in <code>Z-DISPLAY-IO-STATUS</code> includes special-case handling for statuses starting with <code>'9'</code> (extended VSAM status codes), decoding the second byte as a binary number — this logic is somewhat obscure and worth flagging for anyone modernizing file status handling.</li>
+<li><strong>No SQL or CICS usage</strong> — confirms this is a straightforward batch VSAM read program, simplifying any modernization/migration analysis (no transaction management or database concerns).</li>
+<li><strong>Business meaning of customer fields is unknown from this program alone</strong> — since <code>CUSTOMER-RECORD</code>'s detailed structure comes from copybook <code>CVCUS01Y</code> (not included in the parsed facts or source shown), the specific customer attributes being read/displayed cannot be confirmed here.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

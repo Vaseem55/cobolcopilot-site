@@ -2513,24 +2513,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CORPT00C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2547,80 +2529,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3046,69 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3127,6 +2972,102 @@
 <h1 id="corpt00c">CORPT00C</h1>
 <p>Source: <code>cbl/CORPT00C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="corpt00c-transaction-report-submission-program">CORPT00C — Transaction Report Submission Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CORPT00C is a CICS online program in the CardDemo application that lets a user request a printed transaction report — Monthly, Yearly, or Custom (date-range) — from a screen (map <code>CORPT0A</code>). Rather than generating the report itself, it validates the user's input, builds a batch JCL job from an in-memory template, and submits that job to a background job queue for execution by a batch process (<code>TRANREPT</code> proc). It also handles standard 3270-style screen navigation (initial display, re-display with error messages, and return to the previous menu).</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>MAIN-PARA</strong> is the entry point on every CICS invocation of this transaction (<code>CR00</code>).</li>
+<li>If there's no commarea (<code>EIBCALEN = 0</code>), it's a fresh start with no prior context, so it sets the "return to" program to <code>COSGN00C</code> (sign-on) and performs <strong>RETURN-TO-PREV-SCREEN</strong>.</li>
+<li>Otherwise it copies in the passed commarea. If the program is being entered for the first time in this conversation (<code>NOT CDEMO-PGM-REENTER</code>), it initializes the map and calls <strong>SEND-TRNRPT-SCREEN</strong> to display the blank report request screen.</li>
+<li>If already re-entered, it calls <strong>RECEIVE-TRNRPT-SCREEN</strong> to read the user's screen input, then branches on the AID key pressed:<ul>
+<li><strong>ENTER</strong> → <strong>PROCESS-ENTER-KEY</strong> (main validation/submission logic)</li>
+<li><strong>PF3</strong> → sets target program to <code>COMEN01C</code> and performs <strong>RETURN-TO-PREV-SCREEN</strong> (back to main menu)</li>
+<li><strong>any other key</strong> → flags an error, sets cursor to the Monthly field, and re-sends the screen with an "invalid key" message</li>
+</ul>
+</li>
+<li>
+<p>The paragraph ends with <code>EXEC CICS RETURN TRANSID(...) COMMAREA(...)</code>, keeping the transaction pseudo-conversational.</p>
+</li>
+<li>
+<p><strong>PROCESS-ENTER-KEY</strong> determines which report type was requested by checking which map field is non-blank:</p>
+</li>
+<li><strong>Monthly</strong>: computes date range as the 1st of the current month through the last day of the current month (using <code>FUNCTION CURRENT-DATE</code>, <code>INTEGER-OF-DATE</code>/<code>DATE-OF-INTEGER</code> arithmetic), then performs <strong>SUBMIT-JOB-TO-INTRDR</strong>.</li>
+<li><strong>Yearly</strong>: computes date range Jan 1–Dec 31 of the current year, then performs <strong>SUBMIT-JOB-TO-INTRDR</strong>.</li>
+<li><strong>Custom</strong>: validates that start/end month, day, and year fields are all present and numeric/in-range (month ≤12, day ≤31), converts them with <code>NUMVAL-C</code>, and calls the external routine <strong>CSUTLDTC</strong> (via <code>CALL</code>) to validate that each date is a genuine calendar date. Any validation failure sets an error flag, positions the cursor, and re-sends the screen (each failure point calls <strong>SEND-TRNRPT-SCREEN</strong> independently). If all checks pass, it performs <strong>SUBMIT-JOB-TO-INTRDR</strong>.</li>
+<li><strong>No selection</strong>: shows "Select a report type to print report..." and re-sends the screen.</li>
+<li>
+<p>If no error occurred, it re-initializes the input fields (<strong>INITIALIZE-ALL-FIELDS</strong>), builds a "<ReportName> report submitted for printing..." confirmation message, and re-sends the screen.</p>
+</li>
+<li>
+<p><strong>SUBMIT-JOB-TO-INTRDR</strong> requires the user to have entered a confirmation flag (<code>CONFIRMI</code>):</p>
+</li>
+<li>If blank, it prompts for confirmation and re-sends the screen.</li>
+<li>If <code>Y</code>/<code>y</code>, it proceeds; if <code>N</code>/<code>n</code>, it aborts (re-initializes fields, flags as handled, re-sends screen); any other value is rejected as invalid.</li>
+<li>
+<p>On confirmed submission, it loops through the 1000-line <code>JOB-LINES</code> table (a redefinition of the hard-coded <code>JOB-DATA</code> JCL template, with the computed start/end dates substituted into the <code>PARM-START-DATE</code>/<code>PARM-END-DATE</code> fields), writing each line via <strong>WIRTE-JOBSUB-TDQ</strong> until it hits an <code>/*EOF</code> marker or a blank line.</p>
+</li>
+<li>
+<p><strong>WIRTE-JOBSUB-TDQ</strong> issues <code>EXEC CICS WRITEQ TD QUEUE('JOBS')</code> for each JCL line, writing it to the transient data queue that (outside this program) feeds CICS's internal reader to launch the batch job. Any non-normal response is displayed via <code>DISPLAY</code> (developer/console diagnostic), flagged as an error, and reported to the user via the screen.</p>
+</li>
+<li>
+<p><strong>SEND-TRNRPT-SCREEN</strong> first calls <strong>POPULATE-HEADER-INFO</strong> (fills in title, transaction/program name, current date/time) then sends the <code>CORPT0A</code> map (with <code>ERASE</code> or without, depending on <code>WS-SEND-ERASE-FLG</code>), and jumps (<code>GO TO</code>) to <strong>RETURN-TO-CICS</strong>, which issues <code>EXEC CICS RETURN</code> to give control back to CICS pending the next user action.</p>
+</li>
+<li>
+<p><strong>RETURN-TO-PREV-SCREEN</strong> sets up commarea fields (from-tranid, from-program, resets <code>CDEMO-PGM-CONTEXT</code>) and performs <code>EXEC CICS XCTL</code> to transfer control to another program (<code>COSGN00C</code> or <code>COMEN01C</code>), ending this program's involvement in the conversation.</p>
+</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CORPT0A</code> (mapset <code>CORPT00</code>)</td>
+<td>BMS map</td>
+<td>Screen for selecting report type (Monthly/Yearly/Custom), entering custom start/end dates, and confirming submission. Both received (<code>CORPT0AI</code>) and sent (<code>CORPT0AO</code>).</td>
+</tr>
+<tr>
+<td>TDQ <code>JOBS</code></td>
+<td>Transient Data Queue (extra-partition, implied)</td>
+<td>Destination for the generated JCL lines; presumably read by CICS's internal reader to submit the batch job <code>TRNRPT00</code> running proc <code>TRANREPT</code>.</td>
+</tr>
+<tr>
+<td><code>DFHCOMMAREA</code></td>
+<td>Commarea (linkage section)</td>
+<td>Carries <code>CARDDEMO-COMMAREA</code> (via copybook <code>COCOM01Y</code>) across pseudo-conversational CICS calls — holds navigation context (from/to program, tran ID, reenter flag).</td>
+</tr>
+<tr>
+<td><code>CSUTLDTC</code></td>
+<td>External subprogram call</td>
+<td>Validates whether a given date string (in <code>YYYY-MM-DD</code> format) is a legitimate calendar date; returns severity/message codes.</td>
+</tr>
+<tr>
+<td>Copybooks: <code>COCOM01Y</code>, <code>CORPT00</code>, <code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CVTRA05Y</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Copybooks</td>
+<td>Common commarea layout, map layout, title/date/message/transaction-record structures, and CICS-supplied AID key/attribute constants. No SQL tables are used by this program — all persistence/reporting work is deferred to the submitted batch job.</td>
+</tr>
+</tbody>
+</table>
+<p>No files or SQL tables are directly accessed in this program (per parser facts); it only interacts with the terminal, TDQ, and commarea.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No direct SQL/file I/O in this program.</strong> All actual transaction reporting happens in a downstream batch job (<code>TRANREPT</code> proc) submitted by writing JCL text to the <code>JOBS</code> TDQ — this program only prepares and sends the job stream.</li>
+<li><strong>Hard-coded JCL and paths</strong>: The entire JCL skeleton (job name <code>TRNRPT00</code>, class <code>A</code>, <code>MSGCLASS=0</code>, JOBLIB <code>AWS.M2.CARDDEMO.PROC</code>, proc <code>TRANREPT</code>) is embedded as literal <code>FILLER</code> values in working storage (<code>JOB-DATA-1</code>), redefined as a 1000-line table (<code>JOB-LINES</code>). Any change to job naming, library, or proc name requires a source code change and recompile — there's no external parameterization.</li>
+<li><strong>Fixed 1000-line JCL buffer</strong>: The loop in <code>SUBMIT-JOB-TO-INTRDR</code> writes up to 1000 lines or until it finds <code>/*EOF</code> or a blank line — since the actual template is much shorter, most iterations should exit early, but this is a manually-maintained sentinel-based design, not a count-based one; a mistake in the template (missing <code>/*EOF</code> and no blank filler) could cause the loop to write all 1000 (mostly blank) lines to the TDQ.</li>
+<li><strong>Typo in paragraph name</strong>: <code>WIRTE-JOBSUB-TDQ</code> (should be "WRITE") — an intentional artifact of the original source; found in both the flow and the facts.</li>
+<li><strong>Confirmation logic double-checks membership</strong> oddly: it first checks if <code>CONFIRMI</code> is blank (prompts for confirmation) and <em>then</em>, only if no error was raised, evaluates whether it's Y/N/other — meaning the blank-check and the Y/N evaluate are somewhat redundant/overlapping in structure but functionally guard against unconfirmed submissions.</li>
+<li><strong>Date validation quirk</strong>: The custom date-range logic treats <code>CSUTLDTC</code> message number <code>'2513'</code> as an accepted case (i.e., not treated as an error) even when severity isn't <code>'0000'</code> — the specific meaning of code 2513 isn't documented in the source, so this exception should be treated as unclear/undocumented behavior worth confirming with the <code>CSUTLDTC</code> routine's own documentation.</li>
+<li><strong>Error handling pattern</strong>: Nearly every validation failure follows the same pattern — set <code>WS-ERR-FLG</code> to <code>Y</code>, set a cursor position (<code>-1</code> in some length field), populate <code>WS-MESSAGE</code>, and call <code>SEND-TRNRPT-SCREEN</code>. However, multiple validation checks in <code>PROCESS-ENTER-KEY</code> are <strong>not</strong> mutually exclusive with <code>END-IF</code>/early exit — several <code>IF</code> blocks execute sequentially even after an earlier one has already set the error flag and sent the screen, meaning later checks can overwrite <code>WS-MESSAGE</code>/cursor position from an earlier failure (the last failing check's message is what's likely retained, though each <code>SEND-TRNRPT-SCREEN</code> call itself returns to CICS via <code>GOTO RETURN-TO-CICS</code>, so in practice CICS returns after the <em>first</em> triggered send — worth verifying against actual runtime behavior since COBOL <code>PERFORM</code> here doesn't stop the surrounding paragraph from continuing after the performed paragraph returns, except that <code>SEND-TRNRPT-SCREEN</code> itself ends in a <code>GO TO</code>, which only exits that paragraph, not <code>PROCESS-ENTER-KEY</code>).</li>
+<li><strong><code>GO TO</code> usage</strong>: <code>SEND-TRNRPT-SCREEN</code> uses <code>GO TO RETURN-TO-CICS</code> rather than a structured fall-through — a legacy pattern that jumps out of the perform hierarchy back into <code>EXEC CICS RETURN</code>, which is a somewhat risky/non-obvious control-flow pattern for maintainers unfamiliar with COBOL.</li>
+<li><strong>Diagnostic <code>DISPLAY</code> statements</strong> (e.g., <code>'PROCESS ENTER KEY'</code>, <code>'RESP:' WS-RESP-CD 'REAS:' WS-REAS-CD</code>) appear to be leftover debug output; in a CICS environment these typically go to a system log/console rather than the user, so they don't affect the screen but do indicate incomplete cleanup from development/testing.</li>
+<li><strong>Commarea reentry flag</strong> (<code>CDEMO-PGM-REENTER</code>, from copybook <code>COCOM01Y</code>) governs whether the map is fresh</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>WRITEQ TD</code>, <code>SEND</code>, <code>RECEIVE</code></p>
 <h2 id="copybooks">Copybooks</h2>

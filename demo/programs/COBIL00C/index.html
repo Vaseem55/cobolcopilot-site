@@ -2177,24 +2177,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COBIL00C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2211,69 +2193,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,109 @@
 <h1 id="cobil00c">COBIL00C</h1>
 <p>Source: <code>cbl/COBIL00C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cobil00c-bill-payment-program">COBIL00C — Bill Payment Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COBIL00C implements the "Pay Current Balance" feature of the CardDemo online banking application. It lets a user enter an account ID, view the current balance, and confirm a full-balance payment, which is recorded as a new transaction and used to zero out (reduce) the account's balance. It is a CICS pseudo-conversational program driven by BMS map <code>COBIL0A</code> (mapset <code>COBIL00</code>).</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>MAIN-PARA</strong> is the entry point on every CICS invocation.</li>
+<li>If <code>EIBCALEN = 0</code> (first-ever entry, no commarea), it sets the return target to <code>COSGN00C</code> and performs <strong>RETURN-TO-PREV-SCREEN</strong> (an <code>XCTL</code>) — i.e., a program invoked with no context bounces back to sign-on.</li>
+<li>Otherwise it copies the commarea into working storage (<code>CARDDEMO-COMMAREA</code>).<ul>
+<li><strong>First entry for this transaction</strong> (<code>NOT CDEMO-PGM-REENTER</code>): initializes the map, and if an account was pre-selected (<code>CDEMO-CB00-TRN-SELECTED</code>), it pre-fills the account field and immediately performs <strong>PROCESS-ENTER-KEY</strong> before sending the screen via <strong>SEND-BILLPAY-SCREEN</strong>.</li>
+<li><strong>Subsequent entries</strong> (re-entrant): performs <strong>RECEIVE-BILLPAY-SCREEN</strong> to read user input, then branches on <code>EIBAID</code>:</li>
+<li><code>ENTER</code> → <strong>PROCESS-ENTER-KEY</strong></li>
+<li><code>PF3</code> → returns to the calling program (or <code>COMEN01C</code> if none) via <strong>RETURN-TO-PREV-SCREEN</strong></li>
+<li><code>PF4</code> → <strong>CLEAR-CURRENT-SCREEN</strong></li>
+<li>anything else → sets an "invalid key" error and re-sends the screen</li>
+</ul>
+</li>
+<li><strong>PROCESS-ENTER-KEY</strong> is the core business logic:</li>
+<li>Validates the account ID isn't blank.</li>
+<li>Looks up the account via <strong>READ-ACCTDAT-FILE</strong> (CICS <code>READ ... UPDATE</code> for potential rewrite).</li>
+<li>Interprets the <code>CONFIRM</code> field:<ul>
+<li><code>Y</code>/<code>y</code> → confirms payment, re-reads the account (<code>READ-ACCTDAT-FILE</code> again).</li>
+<li><code>N</code>/<code>n</code> → clears the screen and flags an error state (aborts the payment).</li>
+<li>blank/low-values → just displays the current balance (no payment yet), via <code>READ-ACCTDAT-FILE</code>.</li>
+<li>anything else → error, "Valid values are (Y/N)".</li>
+</ul>
+</li>
+<li>Rejects payment if <code>ACCT-CURR-BAL &lt;= 0</code> ("You have nothing to pay...").</li>
+<li>If confirmed (<code>CONF-PAY-YES</code>):<ul>
+<li><strong>READ-CXACAIX-FILE</strong> looks up the card cross-reference for the account (to get the card number).</li>
+<li><strong>STARTBR-TRANSACT-FILE</strong> / <strong>READPREV-TRANSACT-FILE</strong> / <strong>ENDBR-TRANSACT-FILE</strong> browse the transaction file backwards from <code>HIGH-VALUES</code> to find the highest existing transaction ID.</li>
+<li>The new transaction ID is that value + 1.</li>
+<li>A new transaction record is built (fixed values: type <code>'02'</code>, category <code>2</code>, source <code>'POS TERM'</code>, description <code>'BILL PAYMENT - ONLINE'</code>, merchant ID <code>999999999</code>, merchant name <code>'BILL PAYMENT'</code>, city/zip <code>'N/A'</code>), with the transaction amount set to the full current balance.</li>
+<li><strong>GET-CURRENT-TIMESTAMP</strong> obtains the current date/time (via <code>ASKTIME</code>/<code>FORMATTIME</code>) and stamps both <code>TRAN-ORIG-TS</code> and <code>TRAN-PROC-TS</code>.</li>
+<li><strong>WRITE-TRANSACT-FILE</strong> adds the record to the transaction file.</li>
+<li>The account balance is reduced by the transaction amount and rewritten via <strong>UPDATE-ACCTDAT-FILE</strong>.</li>
+</ul>
+</li>
+<li>Regardless of outcome, <strong>SEND-BILLPAY-SCREEN</strong> re-displays the map with a status/error message.</li>
+<li><strong>SEND-BILLPAY-SCREEN</strong> always calls <strong>POPULATE-HEADER-INFO</strong> first (titles, program/transaction name, current date/time from <code>FUNCTION CURRENT-DATE</code>) before issuing the CICS <code>SEND MAP</code>.</li>
+<li><strong>CLEAR-CURRENT-SCREEN</strong> / <strong>INITIALIZE-ALL-FIELDS</strong> reset the input fields and message, then redisplay the (blank) screen.</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Used by</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DFHCOMMAREA</code></td>
+<td>CICS commarea (linkage)</td>
+<td>MAIN-PARA</td>
+<td>Carries <code>CARDDEMO-COMMAREA</code> (navigation context, previous program, selected account) between pseudo-conversational calls.</td>
+</tr>
+<tr>
+<td><code>COBIL0A</code> map (mapset <code>COBIL00</code>)</td>
+<td>BMS screen</td>
+<td>SEND/RECEIVE-BILLPAY-SCREEN</td>
+<td>Bill-payment input/output screen: account ID, current balance, confirm Y/N, error message, header fields.</td>
+</tr>
+<tr>
+<td><code>ACCTDAT</code> (<code>WS-ACCTDAT-FILE</code>)</td>
+<td>VSAM file (via <code>ACCOUNT-RECORD</code>, copybook CVACT01Y)</td>
+<td>READ-ACCTDAT-FILE / UPDATE-ACCTDAT-FILE</td>
+<td>Read account balance (with UPDATE lock) and rewrite it after payment.</td>
+</tr>
+<tr>
+<td><code>CXACAIX</code> (<code>WS-CXACAIX-FILE</code>)</td>
+<td>VSAM alternate index file (via <code>CARD-XREF-RECORD</code>, copybook CVACT03Y)</td>
+<td>READ-CXACAIX-FILE</td>
+<td>Look up the card number cross-referenced to the account ID, needed for the transaction record.</td>
+</tr>
+<tr>
+<td><code>TRANSACT</code> (<code>WS-TRANSACT-FILE</code>)</td>
+<td>VSAM file (via <code>TRAN-RECORD</code>, copybook CVTRA05Y)</td>
+<td>STARTBR/READPREV/ENDBR/WRITE-TRANSACT-FILE</td>
+<td>Determine the next transaction ID (browse in reverse from high values) and write the new bill-payment transaction.</td>
+</tr>
+<tr>
+<td>Various copybooks (<code>COCOM01Y</code>, <code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>DFHAID</code>, <code>DFHBMSCA</code>)</td>
+<td>Working-storage layouts</td>
+<td>throughout</td>
+<td>Common commarea layout, titles, date/message constants, CICS AID/attribute constants.</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables are used (parser confirms <code>sql_tables: []</code>) — all persistence is via CICS file control (VSAM), not DB2.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded values in the generated transaction</strong>: type code <code>'02'</code>, category <code>2</code>, source <code>'POS TERM'</code>, description <code>'BILL PAYMENT - ONLINE'</code>, merchant ID <code>999999999</code>, merchant name <code>'BILL PAYMENT'</code>, city/zip <code>'N/A'</code>. Any change to bill-payment classification requires editing this code directly.</li>
+<li><strong>Transaction ID generation is not safe under concurrency</strong>: the highest transaction ID is found by browsing backwards from <code>HIGH-VALUES</code> and adding 1, with no locking between the browse and the <code>WRITE</code>. Simultaneous bill payments could theoretically collide (handled only reactively via <code>DFHRESP(DUPKEY)</code>/<code>DUPREC</code> producing a "Tran ID already exist..." error, not retried).</li>
+<li><strong>No SQL/DB2 use</strong> — this program is pure CICS/VSAM, differing from other CardDemo modules that use DB2.</li>
+<li><strong>Error handling pattern</strong>: nearly every file operation follows the same <code>EVALUATE WS-RESP-CD</code> pattern (NORMAL / NOTFND / OTHER), setting <code>WS-ERR-FLG</code>, building a message, and re-sending the screen. Unexpected errors are also written to <code>DISPLAY</code> (console/log), which is useful for problem diagnosis but not surfaced in any structured way.</li>
+<li><strong>Full-balance-only payment</strong>: there is no partial payment option — the entire <code>ACCT-CURR-BAL</code> is paid off in one transaction; if balance is zero or negative, payment is blocked with "You have nothing to pay...".</li>
+<li><strong>PF4 acts as "clear screen"</strong> and PF3 as "return to previous/calling program" (falls back to <code>COMEN01C</code> if no calling program is known); any other AID key yields a generic "invalid key" message — the specific set of allowed keys is limited to Enter, PF3, PF4.</li>
+<li><strong>Re-entrancy flag</strong> (<code>CDEMO-PGM-REENTER</code>) governs whether the program treats the call as first-time (auto-processing a preselected account) or as a subsequent screen interaction (receive + evaluate AID) — this logic is a common CardDemo convention but easy to misread without CICS pseudo-conversational background.</li>
+<li><strong>Confirmation field semantics</strong> (<code>CONFIRMI</code>) is overloaded: blank/low-values means "just show balance," <code>Y</code> means "confirm and pay," <code>N</code> means "cancel and clear," anything else is invalid — this three-way state logic is subtle and should be preserved carefully in any rewrite.</li>
+<li>The copybook <code>COBIL00</code> (referenced but not detailed in these facts) defines the <code>COBIL0AI</code>/<code>COBIL0AO</code> map record layouts; its field definitions (e.g., <code>ACTIDINI</code>, <code>CURBALI</code>, <code>CONFIRMI</code>, <code>ERRMSGO</code>) are essential to fully understanding screen field behavior but were not included in the extracted facts.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>ASKTIME</code>, <code>FORMATTIME</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>READ</code>, <code>REWRITE</code>, <code>STARTBR</code>, <code>READPREV</code>, <code>ENDBR</code>, <code>WRITE</code></p>
 <h2 id="copybooks">Copybooks</h2>

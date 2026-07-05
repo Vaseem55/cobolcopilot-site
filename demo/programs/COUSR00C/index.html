@@ -2709,24 +2709,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COUSR00C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2743,69 +2725,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,91 @@
 <h1 id="cousr00c">COUSR00C</h1>
 <p>Source: <code>cbl/COUSR00C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cousr00c-user-list-screen">COUSR00C — User List Screen</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COUSR00C is a CICS transaction program in the CardDemo application that displays a <strong>paginated list of user security records</strong> (from the <code>USRSEC</code> file) to an administrator. It lets the operator page forward/backward through the list (10 users per screen page) and select a user to either <strong>update</strong> (routes to COUSR02C) or <strong>delete</strong> (routes to COUSR03C). It is the "browse users" screen invoked from the admin menu (COADM01C) and reached via transaction code <code>CU00</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<p><strong>MAIN-PARA</strong> is the entry point and behaves differently depending on how the transaction was invoked:</p>
+<ul>
+<li>If <code>EIBCALEN = 0</code> (no commarea, e.g. abnormal invocation), it sets the return target to <code>COSGN00C</code> and calls <strong>RETURN-TO-PREV-SCREEN</strong> — effectively bouncing the user back to sign-on.</li>
+<li>If a commarea is present but this is the <strong>first entry</strong> into the program (<code>NOT CDEMO-PGM-REENTER</code>), it initializes the output map, calls <strong>PROCESS-ENTER-KEY</strong> to load the first page of users, then <strong>SEND-USRLST-SCREEN</strong> to display it.</li>
+<li>On subsequent invocations (re-entrant, user pressed a key), it calls <strong>RECEIVE-USRLST-SCREEN</strong> to read the submitted map, then dispatches based on <code>EIBAID</code>:</li>
+<li><strong>ENTER</strong> → <strong>PROCESS-ENTER-KEY</strong> (process a row selection, or re-filter by typed user ID, then reload page 1 forward)</li>
+<li><strong>PF3</strong> → set return target to <code>COADM01C</code> and <strong>RETURN-TO-PREV-SCREEN</strong></li>
+<li><strong>PF7</strong> → <strong>PROCESS-PF7-KEY</strong> (page backward)</li>
+<li><strong>PF8</strong> → <strong>PROCESS-PF8-KEY</strong> (page forward)</li>
+<li>Any other key → error flag set, "invalid key" message, redisplay</li>
+</ul>
+<p><strong>PROCESS-ENTER-KEY</strong> first checks all 10 select fields (<code>SEL0001I</code>…<code>SEL0010I</code>) for a non-blank value entered by the user next to a row. If found, it captures the selection flag (<code>U</code>/<code>u</code> or <code>D</code>/<code>d</code>) and the corresponding user ID, then does a CICS <code>XCTL</code> to <strong>COUSR02C</strong> (update) or <strong>COUSR03C</strong> (delete), passing the commarea. If the flag is anything else, it shows a validation message. Regardless, it also picks up whatever user ID was typed into the filter field, resets the page number to 0, and calls <strong>PROCESS-PAGE-FORWARD</strong> to (re)load the first page starting from that key.</p>
+<p><strong>PROCESS-PAGE-FORWARD</strong> / <strong>PROCESS-PAGE-BACKWARD</strong> implement the paging logic using CICS browse commands against the <code>USRSEC</code> VSAM file:
+1. <strong>STARTBR-USER-SEC-FILE</strong> — position the browse at the current key.
+2. <strong>READNEXT-USER-SEC-FILE</strong> / <strong>READPREV-USER-SEC-FILE</strong> — read one record to "skip" past the anchor record from the previous page.
+3. <strong>INITIALIZE-USER-DATA</strong> — blank out all 10 screen row slots.
+4. A loop reads up to 10 more records via READNEXT/READPREV, calling <strong>POPULATE-USER-DATA</strong> to fill each screen row (<code>WS-IDX</code> 1–10) with <code>SEC-USR-ID</code>, <code>SEC-USR-FNAME</code>, <code>SEC-USR-LNAME</code>, <code>SEC-USR-TYPE</code>. The first and last row's user IDs are also saved into <code>CDEMO-CU00-USRID-FIRST</code>/<code>-LAST</code> for future page-forward/backward key positioning.
+5. One more read attempts to detect whether there is a next/previous page, setting <code>NEXT-PAGE-YES</code>/<code>NO</code> and incrementing/decrementing <code>CDEMO-CU00-PAGE-NUM</code> accordingly.
+6. <strong>ENDBR-USER-SEC-FILE</strong> closes the browse, and <strong>SEND-USRLST-SCREEN</strong> redisplays the map.</p>
+<p><strong>PF7</strong> (backward) refuses to page past page 1 ("You are already at the top of the page…"); <strong>PF8</strong> (forward) refuses to page past the last page ("...bottom of the page..."), both without touching the file.</p>
+<p><strong>SEND-USRLST-SCREEN</strong> always calls <strong>POPULATE-HEADER-INFO</strong> (title, transaction/program name, current date/time from <code>FUNCTION CURRENT-DATE</code>) before sending the map, using <code>ERASE</code> on first display or normal (non-erase) redisplay depending on <code>WS-SEND-ERASE-FLG</code>.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USRSEC</code> (via <code>WS-USRSEC-FILE</code>)</td>
+<td>VSAM file, accessed with <code>STARTBR</code>/<code>READNEXT</code>/<code>READPREV</code>/<code>ENDBR</code></td>
+<td>Source of user security records; keyed by <code>SEC-USR-ID</code>. Read-only browse — no writes.</td>
+</tr>
+<tr>
+<td><code>DFHCOMMAREA</code></td>
+<td>CICS commarea (<code>CARDDEMO-COMMAREA</code>, via <code>COCOM01Y</code>)</td>
+<td>Carries session/navigation state between programs: from/to program, tranid, page context, and the <code>CDEMO-CU00-INFO</code> paging state (first/last user ID on page, page number, next-page flag, selection flag/ID).</td>
+</tr>
+<tr>
+<td><code>COUSR0A</code> map / <code>COUSR00</code> mapset</td>
+<td>BMS screen (SEND/RECEIVE)</td>
+<td>Displays the 10-row user list, header info, error message line, and filter/select input fields.</td>
+</tr>
+<tr>
+<td>Copybooks <code>COCOM01Y</code>, <code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CSUSR01Y</code></td>
+<td>Working-storage layouts</td>
+<td>Common commarea, title text, date/time fields, message constants, and user-record layout (<code>SEC-USER-DATA</code>, <code>SEC-USR-ID/FNAME/LNAME/TYPE</code>).</td>
+</tr>
+<tr>
+<td><code>COUSR00</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Copybooks</td>
+<td>Map symbolic layout and CICS attention-key/attribute constants.</td>
+</tr>
+<tr>
+<td>No SQL tables</td>
+<td>—</td>
+<td>Confirmed by parser: <code>sql_tables</code> is empty; this program uses only VSAM/CICS file control, not DB2.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Outbound navigation (XCTL):</strong>
+- <code>COUSR02C</code> — update selected user
+- <code>COUSR03C</code> — delete selected user
+- <code>COADM01C</code> — return via PF3
+- <code>COSGN00C</code> — return when commarea is missing (EIBCALEN=0) or as default fallback</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded transaction/program identifiers</strong>: <code>WS-TRANID = 'CU00'</code>, <code>WS-PGMNAME = 'COUSR00C'</code>, and file name <code>WS-USRSEC-FILE = 'USRSEC  '</code> are fixed constants in working storage, not configurable.</li>
+<li><strong>Fixed page size of 10 rows</strong> is baked into the logic via <code>OCCURS 10 TIMES</code> and the hard-coded <code>EVALUATE WS-IDX WHEN 1 … WHEN 10</code> structure in both <strong>POPULATE-USER-DATA</strong> and <strong>INITIALIZE-USER-DATA</strong>. Adding/removing rows would require touching multiple paragraphs and the map.</li>
+<li><strong>No SQL/DB2 use</strong> — despite being part of a "CardDemo" app that elsewhere uses DB2, this program relies purely on VSAM browse (<code>STARTBR</code>/<code>READNEXT</code>/<code>READPREV</code>/<code>ENDBR</code>) against <code>USRSEC</code>.</li>
+<li><strong>Error handling is coarse-grained</strong>: any unexpected CICS response code (<code>WHEN OTHER</code> in STARTBR/READNEXT/READPREV) sets <code>WS-ERR-FLG</code> to <code>'Y'</code> and shows a generic "Unable to lookup User..." message; the actual RESP/REAS codes are only sent to <code>DISPLAY</code> (i.e., a CICS console/log), not surfaced in detail to the user or captured for programmatic diagnostics.</li>
+<li><strong>Redundant reads on paging boundaries</strong>: PROCESS-PAGE-FORWARD/BACKWARD each perform an extra READNEXT/READPREV beyond the 10 needed, purely to detect whether another page exists — this pattern is intentional but adds file I/O per page turn.</li>
+<li><strong>Selection logic scans fields in a fixed textual order</strong> (SEL0001I…SEL0010I) and only honors the <em>first</em> non-blank selection found; if a user marks multiple rows, only the first is processed.</li>
+<li><strong>Selection flag validation</strong> accepts <code>U</code>/<code>u</code> (update) or <code>D</code>/<code>d</code> (delete) only; anything else in the selection field triggers an inline error message but does not block the subsequent page reload (<code>PROCESS-PAGE-FORWARD</code> still executes even after an invalid selection).</li>
+<li><strong>The commarea is truncated/read via <code>EIBCALEN</code></strong>: <code>DFHCOMMAREA(1:EIBCALEN)</code> is moved into <code>CARDDEMO-COMMAREA</code>, so if the commarea passed in is shorter than expected, fields could be uninitialized — this depends on the calling program passing a properly sized commarea (worth verifying against <code>COCOM01Y</code>'s length elsewhere in the docs).</li>
+<li><strong>Send/erase toggling</strong> (<code>WS-SEND-ERASE-FLG</code>) controls whether the terminal screen is cleared (<code>ERASE</code>) or not; PF7/PF8 boundary messages explicitly suppress ERASE, meaning the screen is redrawn without clearing first — a minor display-refresh optimization/quirk to be aware of when reproducing screen behavior in a modern UI.</li>
+<li><strong>No explicit <code>GTEQ</code> on STARTBR</strong> — the <code>GTEQ</code> option is commented out (<code>*  GTEQ</code>), meaning the browse defaults to an exact-key start; behavior on a non-matching key relies on CICS's default positioning, which should be confirmed against CICS file-control semantics if reimplementing this logic.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>STARTBR</code>, <code>READNEXT</code>, <code>READPREV</code>, <code>ENDBR</code></p>
 <h2 id="copybooks">Copybooks</h2>

@@ -2457,24 +2457,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COPAUS1C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2491,69 +2473,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,120 @@
 <h1 id="copaus1c">COPAUS1C</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/COPAUS1C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="copaus1c-authorization-detail-view">COPAUS1C — Authorization Detail View</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COPAUS1C is a CICS BMS screen program in the CardDemo Authorization module that displays the full details of a single pending card authorization message (the "Auth Detail View"). It lets a user step through pending authorizations one at a time (PF8 = next), and lets them flag or unflag a specific authorization as confirmed fraud (PF5), which triggers a call to a separate fraud-processing program. It reads/updates authorization data stored in an IMS database rather than DB2 (no SQL tables are used by this program).</p>
+<h2 id="how-it-works">How it works</h2>
+<ul>
+<li><strong>MAIN-PARA</strong> is the entry point, invoked on every CICS transaction under TRANID <code>CPVD</code>.</li>
+<li>If <code>EIBCALEN = 0</code> (no commarea, i.e. program invoked cold), it initializes the commarea, sets the "return-to" program to the Auth Summary screen (<code>COPAUS0C</code>), and performs <strong>RETURN-TO-PREV-SCREEN</strong> (an XCTL back to the summary screen) — effectively refusing to run standalone.</li>
+<li>Otherwise it copies in the passed commarea. On first entry (<code>NOT CDEMO-PGM-REENTER</code>) it marks the session re-entrant, runs <strong>PROCESS-ENTER-KEY</strong>, and sends the screen via <strong>SEND-AUTHVIEW-SCREEN</strong>.</li>
+<li>On subsequent invocations it performs <strong>RECEIVE-AUTHVIEW-SCREEN</strong> to read the user's input, then branches on <code>EIBAID</code>:<ul>
+<li><strong>ENTER</strong> → <strong>PROCESS-ENTER-KEY</strong> then <strong>SEND-AUTHVIEW-SCREEN</strong>.</li>
+<li><strong>PF3</strong> → sets the return program to the Auth Summary screen and performs <strong>RETURN-TO-PREV-SCREEN</strong> (XCTL out).</li>
+<li><strong>PF5</strong> → <strong>MARK-AUTH-FRAUD</strong> then <strong>SEND-AUTHVIEW-SCREEN</strong> (fraud flag toggle).</li>
+<li><strong>PF8</strong> → <strong>PROCESS-PF8-KEY</strong> (advance to next auth record) then <strong>SEND-AUTHVIEW-SCREEN</strong>.</li>
+<li>Any other key → treated as invalid; still re-runs <strong>PROCESS-ENTER-KEY</strong>, shows an "invalid key" message, and re-sends the screen.</li>
+</ul>
+</li>
+<li>
+<p>Every path ends with <code>EXEC CICS RETURN TRANSID('CPVD') COMMAREA(...)</code>, so the transaction is pseudo-conversational — it always returns control to CICS and waits for the next user action under the same TRANID.</p>
+</li>
+<li>
+<p><strong>PROCESS-ENTER-KEY</strong> — validates that an account ID and a selected authorization key are present, then calls <strong>READ-AUTH-RECORD</strong> to fetch the IMS segments. If the IMS PSB was scheduled during the read, it de-schedules logically and calls <strong>TAKE-SYNCPOINT</strong> to commit/release IMS resources. Finally calls <strong>POPULATE-AUTH-DETAILS</strong> to move the fetched data onto the screen fields.</p>
+</li>
+<li>
+<p><strong>READ-AUTH-RECORD</strong> — calls <strong>SCHEDULE-PSB</strong> to schedule the IMS PSB <code>PSBPAUTB</code>, then issues a <code>DLI GU</code> (Get Unique) against the root segment <code>PAUTSUM0</code> keyed by account ID, followed by a <code>DLI GNP</code> (Get Next within Parent) against child segment <code>PAUTDTL1</code> keyed by the authorization key. IMS status codes (<code>DIBSTAT</code>) are checked after each call; segment-not-found/end-of-database sets an EOF flag, and any other non-OK status is treated as a system error (sets an error flag, builds a message, and immediately sends the screen).</p>
+</li>
+<li>
+<p><strong>MARK-AUTH-FRAUD</strong> (PF5) — re-reads the current auth record, flips the in-memory fraud-status flag (<code>PA-FRAUD-CONFIRMED</code> ↔ <code>PA-FRAUD-REMOVED</code>), builds a small commarea (<code>WS-FRAUD-DATA</code>) with account/customer IDs and the auth record, and issues <code>EXEC CICS LINK</code> to program <code>COPAUS2C</code> (the fraud-processing program) to actually record/clear the fraud report. Based on the response:</p>
+</li>
+<li>If the LINK succeeds and the fraud program reports success, <strong>UPDATE-AUTH-DETAILS</strong> is performed to persist the change back to IMS (<code>DLI REPL</code>) and take a syncpoint.</li>
+<li>If the fraud program reports failure, or the LINK itself fails, <strong>ROLL-BACK</strong> (<code>EXEC CICS SYNCPOINT ROLLBACK</code>) is performed instead, discarding the change.</li>
+<li>
+<p>Screen fields are then repopulated via <strong>POPULATE-AUTH-DETAILS</strong>.</p>
+</li>
+<li>
+<p><strong>PROCESS-PF8-KEY</strong> — re-reads the current record, then calls <strong>READ-NEXT-AUTH-RECORD</strong> (<code>DLI GNP</code> with no key, i.e. "get next" in IMS sequence) to advance to the following pending authorization detail under the same parent. If IMS reports end-of-data, it suppresses the screen-erase flag and shows a "last authorization" message instead of advancing; otherwise it updates the selected key and repopulates the screen.</p>
+</li>
+<li>
+<p><strong>POPULATE-AUTH-DETAILS</strong> — moves all the IMS segment fields (card number, auth date/time, amount, response code/reason, merchant info, fraud flag, etc.) into the BMS map output fields, only when no error flag is set. It formats dates/times, colors the approve/decline indicator (green for approved response code <code>'00'</code>, red otherwise), and looks up a human-readable decline reason via a binary search (<code>SEARCH ALL</code>) of a hard-coded in-memory table (<code>WS-DECLINE-REASON-TAB</code>).</p>
+</li>
+<li>
+<p><strong>SEND-AUTHVIEW-SCREEN</strong> / <strong>RECEIVE-AUTHVIEW-SCREEN</strong> — wrap the CICS <code>SEND MAP</code>/<code>RECEIVE MAP</code> calls against mapset <code>COPAU01</code>, map <code>COPAU1A</code>. <strong>POPULATE-HEADER-INFO</strong> fills in the screen's static header (titles, transaction/program name, current date/time).</p>
+</li>
+<li>
+<p><strong>TAKE-SYNCPOINT</strong> / <strong>ROLL-BACK</strong> wrap <code>EXEC CICS SYNCPOINT</code> and <code>EXEC CICS SYNCPOINT ROLLBACK</code> respectively, used to commit or undo IMS database changes.</p>
+</li>
+<li>
+<p><strong>SCHEDULE-PSB</strong> issues <code>EXEC DLI SCHD</code> for PSB <code>PSBPAUTB</code>. If IMS reports the PSB was already scheduled (<code>PSB-SCHEDULED-MORE-THAN-ONCE</code>), it terminates (<code>DLI TERM</code>) and retries the schedule once. Any non-OK final status is treated as a fatal system error.</p>
+</li>
+</ul>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PENDING-AUTH-SUMMARY</code> (segment <code>PAUTSUM0</code>)</td>
+<td>IMS DB segment (root)</td>
+<td>Read via <code>DLI GU</code>, keyed by account ID (<code>ACCNTID</code>), to locate the parent authorization summary.</td>
+</tr>
+<tr>
+<td><code>PENDING-AUTH-DETAILS</code> (segment <code>PAUTDTL1</code>)</td>
+<td>IMS DB segment (child)</td>
+<td>Read via <code>DLI GNP</code> keyed by authorization key (<code>PAUT9CTS</code>) or unkeyed (get-next) for PF8 paging; updated via <code>DLI REPL</code> when marking/unmarking fraud.</td>
+</tr>
+<tr>
+<td>PSB <code>PSBPAUTB</code></td>
+<td>IMS PSB</td>
+<td>Scheduled/terminated around each database access sequence.</td>
+</tr>
+<tr>
+<td><code>COPAU01</code> / map <code>COPAU1A</code> (BMS)</td>
+<td>Terminal screen</td>
+<td>Displays authorization detail fields; receives user input (PF keys, ENTER).</td>
+</tr>
+<tr>
+<td><code>CARDDEMO-COMMAREA</code> / <code>DFHCOMMAREA</code></td>
+<td>CICS commarea</td>
+<td>Carries session state between transactions: selected account/auth key, navigation flags, "from/to program" routing info, and fraud-related data (<code>CDEMO-CPVD-*</code> fields).</td>
+</tr>
+<tr>
+<td><code>COPAUS0C</code> (Auth Summary program)</td>
+<td>CICS program (XCTL target)</td>
+<td>Returned to via PF3 or when invoked with no commarea.</td>
+</tr>
+<tr>
+<td><code>COPAUS2C</code> (Auth Fraud program)</td>
+<td>CICS program (LINK target)</td>
+<td>Invoked synchronously to process fraud confirm/remove requests; passes <code>WS-FRAUD-DATA</code> commarea and receives a status/message back.</td>
+</tr>
+<tr>
+<td>Copybooks: <code>CIPAUDTY</code>, <code>CIPAUSMY</code></td>
+<td>IMS segment layouts</td>
+<td>Define <code>PENDING-AUTH-DETAILS</code> and <code>PENDING-AUTH-SUMMARY</code> record structures.</td>
+</tr>
+<tr>
+<td>Copybooks: <code>COCOM01Y</code>, <code>COPAU01</code>, <code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CSMSG02Y</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Shared commarea, screen map, titles, date/time, message text, abend variables, and CICS constants.</td>
+<td>Support common commarea layout, screen definitions, and standard messages/attention identifiers.</td>
+</tr>
+</tbody>
+</table>
+<p>Note: The parser found no SQL tables and no defined <code>FILES</code>/<code>FD</code> entries for this program — all persistent data access here is via IMS DL/I calls, consistent with the program header comment "CICS IMS BMS Program."</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded values</strong>: transaction ID <code>CPVD</code>, PSB name <code>PSBPAUTB</code>, program names <code>COPAUS0C</code> (summary), <code>COPAUS2C</code> (fraud), and <code>COPAUS1C</code> (self) are all literal constants in working storage — any renaming of these programs/transactions in the environment requires a source change and recompile.</li>
+<li><strong>Hard-coded decline-reason table</strong>: the 10-row <code>WS-DECLINE-REASON-TABLE</code> (codes like <code>0000APPROVED</code>, <code>5100CARD FRAUD</code>, <code>9000UNKNOWN</code>, etc.) is embedded in the program and searched with <code>SEARCH ALL</code> (binary search — the table must remain in ascending <code>DECL-CODE</code> order for correct results). Unrecognized codes fall through to a generic <code>9999-ERROR</code> display. This table is not sourced from a database and would need a code change to add new decline reasons.</li>
+<li><strong>Error handling pattern is aggressive/immediate</strong>: several IMS error branches (in <strong>READ-AUTH-RECORD</strong>, <strong>READ-NEXT-AUTH-RECORD</strong>, <strong>UPDATE-AUTH-DETAILS</strong>, <strong>SCHEDULE-PSB</strong>) call <code>PERFORM SEND-AUTHVIEW-SCREEN</code> directly from deep within nested logic rather than returning control to a single common error path. This can cause the screen to be sent more than once in the same transaction (the paragraph flow shows <code>SEND-AUTHVIEW-SCREEN</code> performed repeatedly), and subsequent CICS <code>SEND MAP</code> calls after an error could behave unexpectedly depending on terminal/BMS state. This is worth verifying against CICS SEND MAP semantics before modernizing.</li>
+<li><strong>PSB scheduling assumptions</strong>: <code>IMS-PSB-SCHD-FLG</code> is used only in working storage to track whether the program itself scheduled the PSB, and it is reset to "not scheduled" and a syncpoint is taken right after each read sequence in <strong>PROCESS-ENTER-KEY</strong> and <strong>PROCESS-PF8-KEY</strong>. If any of the paragraphs that read IMS data are extended in the future without preserving this schedule/syncpoint pairing, IMS resource leaks or "already scheduled" errors (<code>PSB-SCHEDULED-MORE-THAN-ONCE</code>) could result — the code does defensively retry the schedule once</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>LINK</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>SYNCPOINT</code></p>
 <h2 id="copybooks">Copybooks</h2>

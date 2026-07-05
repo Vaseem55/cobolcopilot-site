@@ -1785,24 +1785,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBACT04C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1819,91 +1801,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,93 @@
 <h1 id="cbact04c">CBACT04C</h1>
 <p>Source: <code>cbl/CBACT04C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbact04c-interest-calculator-batch">CBACT04C — Interest Calculator (Batch)</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This batch COBOL program calculates monthly interest on credit card account balances, based on the transaction category balances accumulated for each account. For each account, it determines the applicable interest rate from a disclosure group table, computes monthly interest per transaction category, updates the account's running balance, and writes an interest-charge transaction record to a transaction file for downstream processing. It is executed as job step <code>INTCALC.STEP15</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The main control flow (Procedure Division, starting line 180) does the following:</p>
+<ol>
+<li>
+<p><strong>Startup</strong>: Opens all five files via <code>0000-TCATBALF-OPEN</code>, <code>0100-XREFFILE-OPEN</code>, <code>0200-DISCGRP-OPEN</code>, <code>0300-ACCTFILE-OPEN</code>, and <code>0400-TRANFILE-OPEN</code>. Any file that fails to open (status ≠ <code>'00'</code>) causes an immediate abend.</p>
+</li>
+<li>
+<p><strong>Main loop</strong>: Reads the transaction category balance file (<code>TCATBAL-FILE</code>) sequentially via <code>1000-TCATBALF-GET-NEXT</code>, one record per iteration, until end-of-file.</p>
+</li>
+<li>When the account ID on the current record (<code>TRANCAT-ACCT-ID</code>) differs from the previous one (<code>WS-LAST-ACCT-NUM</code>), the program treats this as a new account:<ul>
+<li>If not the first account processed, it calls <code>1050-UPDATE-ACCOUNT</code> to post the accumulated interest (<code>WS-TOTAL-INT</code>) to the <em>previous</em> account's balance and reset cycle credit/debit totals to zero.</li>
+<li>It resets the running interest total, then looks up the new account's master record (<code>1100-GET-ACCT-DATA</code>) and its cross-reference record (<code>1110-GET-XREF-DATA</code>, keyed on account ID via the alternate key).</li>
+</ul>
+</li>
+<li>For every category-balance record (regardless of whether the account changed), it looks up the interest rate for that account's disclosure group / transaction type / category via <code>1200-GET-INTEREST-RATE</code>.<ul>
+<li>If the specific group is not found (<code>DISCGRP-STATUS = '23'</code>), it falls back to a hard-coded <code>'DEFAULT'</code> group ID and re-reads via <code>1200-A-GET-DEFAULT-INT-RATE</code>.</li>
+</ul>
+</li>
+<li>If a non-zero interest rate (<code>DIS-INT-RATE</code>) is found, it computes interest (<code>1300-COMPUTE-INTEREST</code>) and calls a stubbed fee routine (<code>1400-COMPUTE-FEES</code>, currently a no-op — "To be implemented").</li>
+<li><code>1300-COMPUTE-INTEREST</code> computes monthly interest as <code>(TRAN-CAT-BAL * DIS-INT-RATE) / 1200</code>, adds it to the account's running total, and calls <code>1300-B-WRITE-TX</code> to write a corresponding transaction record (type <code>'01'</code>, category <code>'05'</code>, source <code>'System'</code>) to the output transaction file, including a generated DB2-style timestamp (<code>Z-GET-DB2-FORMAT-TIMESTAMP</code>).</li>
+<li>
+<p>When the category-balance file reaches end-of-file, the loop performs one final <code>1050-UPDATE-ACCOUNT</code> to post interest for the last account.</p>
+</li>
+<li>
+<p><strong>Shutdown</strong>: Closes all five files (<code>9000</code>–<code>9400</code> paragraphs), again abending on any close error, and displays a completion message.</p>
+</li>
+</ol>
+<p>Any file-status error during open, read, rewrite, write, or close triggers <code>9910-DISPLAY-IO-STATUS</code> (formats and displays the numeric/status code) followed by <code>9999-ABEND-PROGRAM</code>, which calls <code>CEE3ABD</code> with abend code 999 to terminate the job forcibly.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / DD</th>
+<th>Select name</th>
+<th>Access</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TCATBALF</code></td>
+<td>TCATBAL-FILE</td>
+<td>Indexed, sequential read</td>
+<td>Input driver file: transaction category balances per account (key: account ID + type code + category code). Drives the main processing loop.</td>
+</tr>
+<tr>
+<td><code>XREFFILE</code></td>
+<td>XREF-FILE</td>
+<td>Indexed, random (by alternate key <code>FD-XREF-ACCT-ID</code>)</td>
+<td>Cross-reference lookup to get the card number associated with an account, used to populate the output transaction's card number.</td>
+</tr>
+<tr>
+<td><code>ACCTFILE</code></td>
+<td>ACCOUNT-FILE</td>
+<td>Indexed, I-O (read and rewrite)</td>
+<td>Account master file — read to get current balance data, rewritten to post accumulated interest and reset cycle credit/debit.</td>
+</tr>
+<tr>
+<td><code>DISCGRP</code></td>
+<td>DISCGRP-FILE</td>
+<td>Indexed, random</td>
+<td>Disclosure group table — provides the interest rate for a given account group / transaction type / category combination, with a fallback to a <code>'DEFAULT'</code> group.</td>
+</tr>
+<tr>
+<td><code>TRANSACT</code></td>
+<td>TRANSACT-FILE</td>
+<td>Sequential, output only</td>
+<td>Output file — new interest-charge transaction records are appended here, one per computed interest amount.</td>
+</tr>
+</tbody>
+</table>
+<p>Copybooks <code>CVACT01Y</code>, <code>CVACT03Y</code>, <code>CVTRA01Y</code>, <code>CVTRA02Y</code>, <code>CVTRA05Y</code> define the working-storage record layouts (<code>ACCOUNT-RECORD</code>, <code>CARD-XREF-RECORD</code>, <code>TRAN-CAT-BAL-RECORD</code>, <code>DIS-GROUP-RECORD</code>, <code>TRAN-RECORD</code>) corresponding to these files. No CICS commands or SQL tables are used — this is a plain batch program. The program also accepts a linkage-section parameter <code>PARM-DATE</code> (10 bytes, from <code>EXTERNAL-PARMS</code>) used to build transaction IDs.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No SQL / CICS</strong>: Despite calculating interest for a "CardDemo" application, this program is pure batch COBOL with VSAM/indexed file I/O — no DB2 or CICS integration, though it generates a "DB2-format" timestamp string manually (<code>Z-GET-DB2-FORMAT-TIMESTAMP</code>) rather than obtaining it from an actual DB2 call.</li>
+<li><strong>Hard-coded values</strong>: Transaction type code <code>'01'</code>, category code <code>'05'</code>, and source <code>'System'</code> are hard-coded for every generated interest transaction. The fallback disclosure group ID <code>'DEFAULT'</code> is also hard-coded (line ~ in <code>1200-GET-INTEREST-RATE</code>).</li>
+<li><strong>Fee calculation stub</strong>: <code>1400-COMPUTE-FEES</code> is empty ("To be implemented") — it is called but currently performs no work. Any downstream expectation of fee transactions will not be met by this version.</li>
+<li><strong>Error handling is uniform but harsh</strong>: virtually every I/O operation checks file status and calls <code>9999-ABEND-PROGRAM</code> on any non-success status (except tolerated cases: end-of-file <code>'10'</code> on the driver file, and <code>'23'</code>/not-found on the disclosure group lookup). There is no retry or partial-recovery logic — any unexpected file status abends the whole job via <code>CALL 'CEE3ABD'</code> with a fixed abend code of 999.</li>
+<li><strong>Transaction ID generation</strong>: <code>TRAN-ID</code> is built by concatenating <code>PARM-DATE</code> with an in-memory counter <code>WS-TRANID-SUFFIX</code> (6 digits, incremented per transaction, not reset across runs within the program) — uniqueness depends entirely on the caller supplying a distinct <code>PARM-DATE</code> per run; there's no persistence of this counter across runs.</li>
+<li><strong>Account-boundary logic risk</strong>: The "new account" detection compares <code>TRANCAT-ACCT-ID</code> to <code>WS-LAST-ACCT-NUM</code> and assumes the category-balance file is sorted by account ID. If the input file is not properly sorted, interest postings could be applied to the wrong account or split incorrectly.</li>
+<li><strong>Interest skipped silently when rate is zero</strong>: If <code>DIS-INT-RATE</code> is 0 for a category, no interest is computed or transaction written for that category — this is by design but could mask missing disclosure group configuration.</li>
+<li><strong><code>1100-GET-ACCT-DATA</code> / <code>1110-GET-XREF-DATA</code> "not found" handling</strong>: These display a message on <code>INVALID KEY</code> but do <strong>not</strong> abend immediately on invalid key alone — they only abend if the resulting file status is not <code>'00'</code>. Since a not-found on a random read is typically a non-<code>'00'</code> status, this effectively still leads to an abend, but the flow is a bit indirect (display message from the <code>INVALID KEY</code> clause, followed by the generic status check triggering the abend).</li>
+<li><strong>Fixed 3-decimal-position style constants</strong>: Interest is computed by dividing by <code>1200</code> (12 months × 100 for percentage) — this assumes <code>DIS-INT-RATE</code> is stored as a whole-number percentage; misconfigured rate scaling would silently produce wrong interest amounts with no validation.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

@@ -2737,24 +2737,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COUSR01C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2771,69 +2753,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,100 @@
 <h1 id="cousr01c">COUSR01C</h1>
 <p>Source: <code>cbl/COUSR01C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cousr01c-add-new-user">COUSR01C — Add New User</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COUSR01C is a CICS transaction (<code>CU01</code>) that implements the "Add User" screen for the CardDemo application's user administration function. It lets an administrator enter a new user's first name, last name, user ID, password, and user type, then adds that user as a record in the USRSEC security file. It provides field-level validation and on-screen feedback (success, duplicate ID, or write failure) before returning control to the calling program or the sign-on screen.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>MAIN-PARA</code>, which behaves differently depending on how the transaction was invoked:</p>
+<ul>
+<li><strong>First entry (<code>EIBCALEN = 0</code>)</strong>: no commarea was passed in, so the program sets the return target to <code>COSGN00C</code> and performs <code>RETURN-TO-PREV-SCREEN</code> to XCTL back out immediately (this looks like a safety/entry guard rather than a normal path).</li>
+<li><strong>Subsequent entry with commarea</strong>: the incoming commarea is copied into <code>CARDDEMO-COMMAREA</code>.</li>
+<li>If this is the <strong>first real display</strong> of the screen (<code>NOT CDEMO-PGM-REENTER</code>), the program initializes the output map, sets the cursor to the first-name field, and calls <code>SEND-USRADD-SCREEN</code> to paint the blank Add-User screen.</li>
+<li>On <strong>re-entry</strong> (user pressed a key), it calls <code>RECEIVE-USRADD-SCREEN</code> to read the entered data, then branches on <code>EIBAID</code>:<ul>
+<li><strong>ENTER</strong> → <code>PROCESS-ENTER-KEY</code> (validate and add the user).</li>
+<li><strong>PF3</strong> → sets return target to <code>COADM01C</code> and performs <code>RETURN-TO-PREV-SCREEN</code> (back to the admin menu).</li>
+<li><strong>PF4</strong> → <code>CLEAR-CURRENT-SCREEN</code> (blanks all input fields and redisplays).</li>
+<li><strong>Any other key</strong> → flags an error, resets cursor, shows "invalid key" message, and redisplays via <code>SEND-USRADD-SCREEN</code>.</li>
+</ul>
+</li>
+</ul>
+<p>At the end of every path, <code>MAIN-PARA</code> issues <code>EXEC CICS RETURN</code> with <code>TRANSID(WS-TRANID)</code> and the commarea, keeping the transaction conversational (pseudo-conversational CICS pattern).</p>
+<p><strong><code>PROCESS-ENTER-KEY</code></strong> validates each input field in order — First Name, Last Name, User ID, Password, User Type — and stops at the first blank field found, setting an error flag, positioning the cursor there, and redisplaying the screen with a message. If all required fields are populated, it moves the input values into the <code>SEC-USER-DATA</code> record (<code>SEC-USR-ID</code>, <code>SEC-USR-FNAME</code>, <code>SEC-USR-LNAME</code>, <code>SEC-USR-PWD</code>, <code>SEC-USR-TYPE</code>) and performs <code>WRITE-USER-SEC-FILE</code>.</p>
+<p><strong><code>WRITE-USER-SEC-FILE</code></strong> issues a CICS <code>WRITE</code> to the <code>USRSEC</code> file keyed on <code>SEC-USR-ID</code>, then evaluates the response code:
+- <strong>NORMAL</strong> → clears the fields, sets a green success message ("User <code>&lt;id&gt;</code> has been added..."), and redisplays.
+- <strong>DUPKEY/DUPREC</strong> → sets an error flag and message "User ID already exist...", repositions cursor to User ID field, and redisplays (user not added).
+- <strong>Any other response</strong> → generic "Unable to Add User..." error, cursor reset to First Name, redisplays.</p>
+<p><strong><code>SEND-USRADD-SCREEN</code></strong> always calls <code>POPULATE-HEADER-INFO</code> first (to refresh title, transaction/program name, current date/time in the map header) before sending the BMS map <code>COUSR1A</code> (mapset <code>COUSR01</code>) with the current message text.</p>
+<p><strong><code>CLEAR-CURRENT-SCREEN</code></strong> and <strong><code>INITIALIZE-ALL-FIELDS</code></strong> blank the input fields and message, then redisplay the screen — used for the PF4 "clear" action and also reused internally after a successful add.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DFHCOMMAREA</code> (<code>CARDDEMO-COMMAREA</code>, via <code>COCOM01Y</code>)</td>
+<td>CICS commarea</td>
+<td>Carries cross-program navigation state (<code>CDEMO-TO-PROGRAM</code>, <code>CDEMO-FROM-PROGRAM/TRANID</code>, <code>CDEMO-PGM-REENTER</code>, <code>CDEMO-PGM-CONTEXT</code>) between this program and the calling/next program.</td>
+</tr>
+<tr>
+<td><code>COUSR1A</code> map / <code>COUSR01</code> mapset (copybook <code>COUSR01</code>)</td>
+<td>BMS screen</td>
+<td>The Add-User input/output screen — fields include <code>FNAMEI/O</code>, <code>LNAMEI/O</code>, <code>USERIDI/O</code>, <code>PASSWDI/O</code>, <code>USRTYPEI/O</code>, <code>ERRMSGO</code>, title/date/time fields. Sent via <code>EXEC CICS SEND</code> and read via <code>EXEC CICS RECEIVE</code>.</td>
+</tr>
+<tr>
+<td><code>USRSEC</code> file (<code>WS-USRSEC-FILE</code>, hard-coded <code>'USRSEC  '</code>)</td>
+<td>CICS file (VSAM, implied)</td>
+<td>Written via <code>EXEC CICS WRITE</code> using <code>SEC-USER-DATA</code> (copybook <code>CSUSR01Y</code>), keyed by <code>SEC-USR-ID</code>. This is the sole output/persistence target — the new user record.</td>
+</tr>
+<tr>
+<td>Copybook <code>COCOM01Y</code></td>
+<td>Data structure</td>
+<td>Common commarea layout shared across CardDemo programs.</td>
+</tr>
+<tr>
+<td>Copybook <code>COTTL01Y</code></td>
+<td>Data structure</td>
+<td>Screen title constants (<code>CCDA-TITLE01/02</code>).</td>
+</tr>
+<tr>
+<td>Copybook <code>CSDAT01Y</code></td>
+<td>Data structure</td>
+<td>Date/time working fields (<code>WS-CURDATE-*</code>, <code>WS-CURTIME-*</code>) used to populate header.</td>
+</tr>
+<tr>
+<td>Copybook <code>CSMSG01Y</code></td>
+<td>Data structure</td>
+<td>Message constants (e.g., <code>CCDA-MSG-INVALID-KEY</code>).</td>
+</tr>
+<tr>
+<td>Copybook <code>CSUSR01Y</code></td>
+<td>Data structure</td>
+<td><code>SEC-USER-DATA</code> / <code>SEC-USR-*</code> record layout — this is the record written to USRSEC.</td>
+</tr>
+<tr>
+<td>Copybooks <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>CICS standard copybooks</td>
+<td>AID key constants (<code>DFHENTER</code>, <code>DFHPF3</code>, <code>DFHPF4</code>) and BMS attribute constants (<code>DFHGREEN</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables are used (parser confirms <code>sql_tables: []</code>) — persistence is entirely through the CICS <code>USRSEC</code> file, not DB2.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No file-not-found/system-error handling beyond a generic message</strong>: <code>WRITE-USER-SEC-FILE</code>'s <code>WHEN OTHER</code> branch catches every non-NORMAL, non-duplicate response with a single "Unable to Add User..." message; the actual <code>RESP</code>/<code>REAS</code> codes are only available via a commented-out <code>DISPLAY</code> statement, so diagnosing real failures (e.g., file not open, storage full) requires uncommenting debug code or adding logging.</li>
+<li><strong>Entry guard oddity</strong>: when <code>EIBCALEN = 0</code>, the program immediately routes back to <code>COSGN00C</code> rather than initializing a fresh Add-User screen. This means COUSR01C expects to always be invoked with a populated commarea (e.g., via XCTL from a menu); direct/transaction-only invocation effectively bounces the user to sign-on.</li>
+<li><strong>Password stored in plain text</strong>: <code>SEC-USR-PWD</code> is moved directly from the input field with no masking, hashing, or encryption logic visible in this program.</li>
+<li><strong>No format/content validation</strong> beyond "not empty": fields like <code>USERIDI</code>, <code>PASSWDI</code>, and <code>USRTYPEI</code> are only checked for spaces/low-values — there's no length, character-set, or valid-user-type validation (e.g., no check that user type is a recognized code) before the write.</li>
+<li><strong>Hard-coded literals</strong>: transaction ID <code>'CU01'</code>, program name <code>'COUSR01C'</code>, file name <code>'USRSEC  '</code>, and fallback return program <code>'COSGN00C'</code> / admin menu <code>'COADM01C'</code> are all hard-coded in working storage/logic rather than configurable.</li>
+<li><strong>Duplicate detection relies on file-level key collision</strong>: <code>DUPKEY</code>/<code>DUPREC</code> responses from the <code>WRITE</code> are the only mechanism preventing duplicate user IDs — there is no explicit read-before-write existence check in this program.</li>
+<li><strong>Cursor/error-flag pattern</strong>: error handling sets <code>WS-ERR-FLG</code> and moves <code>-1</code> to the relevant field's length attribute to reposition the BMS cursor, a common CICS/BMS convention but easy to miss if unfamiliar with COBOL/CICS map field naming (<code>xxxxL</code>, <code>xxxxI</code>, <code>xxxxO</code> suffixes for length, input, output).</li>
+<li><strong>Pseudo-conversational design</strong>: because every path ends in <code>EXEC CICS RETURN</code> with a <code>TRANSID</code>, this program relies on CICS pseudo-conversational processing and the <code>CDEMO-PGM-REENTER</code> flag in the commarea to distinguish first display from user response — this is standard CICS practice but a common source of confusion for non-mainframe developers expecting a single continuously-running process.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>WRITE</code></p>
 <h2 id="copybooks">Copybooks</h2>

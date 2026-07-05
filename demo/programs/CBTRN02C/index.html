@@ -2009,24 +2009,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBTRN02C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2043,91 +2025,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,94 @@
 <h1 id="cbtrn02c">CBTRN02C</h1>
 <p>Source: <code>cbl/CBTRN02C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbtrn02c-daily-transaction-posting-program">CBTRN02C — Daily Transaction Posting Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBTRN02C is a batch COBOL program in the CardDemo application that posts a daily batch of credit card transactions to the account and category-balance masters. For each transaction it validates the card number and account against reference data, checks credit limit and account expiration, then either posts the transaction (updating balances and writing it to the permanent transaction file) or writes it to a rejects file with a reason code. It is executed as job step <code>POSTTRAN.STEP15</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The main paragraph (PROCEDURE DIVISION, from line 193) drives a straightforward open → loop → close structure:</p>
+<ol>
+<li>
+<p><strong>Startup</strong>: Opens all six files in sequence via <code>0000-DALYTRAN-OPEN</code> through <code>0500-TCATBALF-OPEN</code>. Any open failure triggers <code>9910-DISPLAY-IO-STATUS</code> (formats the file status for display) followed by <code>9999-ABEND-PROGRAM</code> (abnormal termination via <code>CALL 'CEE3ABD'</code>).</p>
+</li>
+<li>
+<p><strong>Main processing loop</strong>: Runs <code>PERFORM UNTIL END-OF-FILE = 'Y'</code>, driven by <code>1000-DALYTRAN-GET-NEXT</code>, which reads one record from the daily transaction file (<code>DALYTRAN-FILE</code>). A file status of <code>10</code> sets <code>END-OF-FILE</code> to stop the loop; any other non-zero status abends the program.</p>
+</li>
+<li>
+<p><strong>Validation</strong> (<code>1500-VALIDATE-TRAN</code>): For each transaction read:</p>
+</li>
+<li><code>1500-A-LOOKUP-XREF</code> looks up the card number in the cross-reference file (<code>XREF-FILE</code>). If not found, sets fail reason 100 ("INVALID CARD NUMBER FOUND") and skips further validation.</li>
+<li>
+<p>If the card lookup succeeds, <code>1500-B-LOOKUP-ACCT</code> reads the account master (<code>ACCOUNT-FILE</code>) using the account ID from the xref record. If not found, sets fail reason 101. If found, it computes a projected balance (<code>ACCT-CURR-CYC-CREDIT - ACCT-CURR-CYC-DEBIT + DALYTRAN-AMT</code>) and rejects with reason 102 ("OVERLIMIT TRANSACTION") if it exceeds the credit limit, and rejects with reason 103 if the account expiration date is earlier than the transaction's origination timestamp.</p>
+</li>
+<li>
+<p><strong>Branch on validation result</strong>:</p>
+</li>
+<li>If <code>WS-VALIDATION-FAIL-REASON = 0</code>, <code>2000-POST-TRANSACTION</code> is performed: it builds a <code>TRAN-RECORD</code> from the daily transaction fields, stamps it with a DB2-format processing timestamp (<code>Z-GET-DB2-FORMAT-TIMESTAMP</code>), then performs <code>2700-UPDATE-TCATBAL</code> (updates/creates the transaction category balance), <code>2800-UPDATE-ACCOUNT-REC</code> (updates account running balances), and <code>2900-WRITE-TRANSACTION-FILE</code> (writes the posted transaction to the output transaction file).</li>
+<li>
+<p>Otherwise, <code>2500-WRITE-REJECT-REC</code> writes the raw transaction plus the failure reason/description to the rejects file, and the reject counter is incremented.</p>
+</li>
+<li>
+<p><strong>Category balance update</strong> (<code>2700-UPDATE-TCATBAL</code>): Attempts to read the transaction category balance record for the account/type/category key. If not found (status <code>23</code>), it flags <code>WS-CREATE-TRANCAT-REC = 'Y'</code> and calls <code>2700-A-CREATE-TCATBAL-REC</code> to initialize and write a new balance record; otherwise it calls <code>2700-B-UPDATE-TCATBAL-REC</code> to add the transaction amount to the existing balance and rewrite it.</p>
+</li>
+<li>
+<p><strong>Shutdown</strong>: After the loop ends, all files are closed (<code>9000</code>–<code>9500</code> paragraphs), transaction/reject counts are displayed, and <code>RETURN-CODE</code> is set to 4 if any rejects occurred, before <code>GOBACK</code>.</p>
+</li>
+</ol>
+<p>Every I/O operation across the program follows the same pattern: check the file status, and on any unexpected status, call <code>9910-DISPLAY-IO-STATUS</code> to log the status code and <code>9999-ABEND-PROGRAM</code> to terminate via <code>CEE3ABD</code>.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / DD</th>
+<th>Access</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DALYTRAN</code> (DALYTRAN-FILE)</td>
+<td>Sequential input</td>
+<td>Daily transactions to be validated and posted (one record per transaction)</td>
+</tr>
+<tr>
+<td><code>XREFFILE</code> (XREF-FILE)</td>
+<td>Indexed random, input</td>
+<td>Card-number-to-account cross-reference lookup</td>
+</tr>
+<tr>
+<td><code>ACCTFILE</code> (ACCOUNT-FILE)</td>
+<td>Indexed random, I/O</td>
+<td>Account master — read for validation, rewritten with updated balances</td>
+</tr>
+<tr>
+<td><code>TCATBALF</code> (TCATBAL-FILE)</td>
+<td>Indexed random, I/O</td>
+<td>Transaction category balance master — read, then written (new) or rewritten (existing) per account/type/category key</td>
+</tr>
+<tr>
+<td><code>TRANFILE</code> (TRANSACT-FILE)</td>
+<td>Indexed output</td>
+<td>Permanent record of successfully posted transactions</td>
+</tr>
+<tr>
+<td><code>DALYREJS</code> (DALYREJS-FILE)</td>
+<td>Sequential output</td>
+<td>Rejected transactions, each with a validation-failure reason code/description appended</td>
+</tr>
+</tbody>
+</table>
+<p>Copybooks used for record layouts: <code>CVACT01Y</code> (account record), <code>CVACT03Y</code> (cross-reference record), <code>CVTRA01Y</code> (transaction category balance record), <code>CVTRA05Y</code> (transaction record), <code>CVTRA06Y</code> (daily transaction record). No CICS commands or SQL tables are used — this is a pure batch, VSAM/sequential-file program despite the DB2-style timestamp formatting.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded reason codes</strong>: Validation failures use fixed numeric codes (100 = invalid card, 101 = account not found, 102 = overlimit, 103 = expired account, 109 = account rewrite failure) with no central definition — these are scattered inline and would need to be documented/maintained carefully during any rewrite.</li>
+<li><strong>Abend on any unexpected I/O status</strong>: Every file operation (open, read, write, rewrite, close) treats any status other than <code>'00'</code> (or <code>'23'</code> for the category-balance "not found" case) as fatal and calls <code>CEE3ABD</code> to abend the whole job — there is no retry or partial-failure handling.</li>
+<li><strong>Silent validation failure on account rewrite</strong>: In <code>2800-UPDATE-ACCOUNT-REC</code>, an <code>INVALID KEY</code> on the <code>REWRITE</code> sets <code>WS-VALIDATION-FAIL-REASON</code> to 109, but this happens <em>after</em> the transaction has already been counted as accepted and already posted to the category balance — the reject flag is set too late to prevent the category-balance update or to route this transaction to the reject file (it will still be written to <code>TRANFILE</code> in <code>2900-WRITE-TRANSACTION-FILE</code>). This looks like a bug/gap in the reject-handling logic and should be flagged for review.</li>
+<li><strong>Return code convention</strong>: Program sets <code>RETURN-CODE = 4</code> if any rejects occurred, otherwise leaves it at 0 (implicit success) — downstream job steps/schedulers likely branch on this.</li>
+<li><strong>DB2-format timestamp is cosmetic</strong>: <code>Z-GET-DB2-FORMAT-TIMESTAMP</code> builds a DB2-style timestamp string purely via string manipulation from <code>FUNCTION CURRENT-DATE</code> — there is no actual DB2 or CICS interaction in this program (confirmed by empty <code>cics_commands</code> and <code>sql_tables</code> in the parsed facts).</li>
+<li><strong>Comment-only extra validation hook</strong>: The comment <code>* ADD MORE VALIDATIONS HERE</code> in <code>1500-VALIDATE-TRAN</code> indicates the validation logic is intentionally minimal/extensible; only three checks (card lookup, account lookup, limit, expiration) currently exist.</li>
+<li><strong>Field-level date comparison risk</strong>: The expiration check compares <code>ACCT-EXPIRAION-DATE</code> (note the typo in the original field name) against a substring of the transaction timestamp (<code>DALYTRAN-ORIG-TS (1:10)</code>) — this is a straight alphanumeric comparison of date-like strings, which only works correctly if both are in the same fixed format (e.g., <code>YYYY-MM-DD</code>); no explicit format validation is performed.</li>
+<li><strong>Commented-out DISPLAY statements</strong> throughout the code (e.g., displaying transaction/account details) suggest this was actively debugged and such tracing could be re-enabled if needed for troubleshooting.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

@@ -1897,24 +1897,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBPAUP0C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1931,58 +1913,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3024,47 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3083,6 +2972,109 @@
 <h1 id="cbpaup0c">CBPAUP0C</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/CBPAUP0C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbpaup0c-delete-expired-pending-authorization-messages">CBPAUP0C — Delete Expired Pending Authorization Messages</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This is a batch COBOL/IMS program that cleans up expired "pending authorization" records from the CardDemo authorization database. It walks through all pending authorization summary records and their child detail records, identifies those that have aged past a configurable expiry threshold, and deletes them from the IMS database. Progress is checkpointed periodically so the job can be restarted without redoing all the work.</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>MAIN-PARA</strong> drives the whole program:</li>
+<li>Calls <strong>1000-INITIALIZE</strong> once to read parameters and set defaults.</li>
+<li>Calls <strong>2000-FIND-NEXT-AUTH-SUMMARY</strong> to fetch the first root (summary) segment.</li>
+<li>Loops (<code>PERFORM UNTIL ERR-FLG-ON OR END-OF-AUTHDB</code>) over all summary segments:<ul>
+<li>For each summary, calls <strong>3000-FIND-NEXT-AUTH-DTL</strong> to get the first child (detail) segment, then loops over all details for that summary (<code>PERFORM UNTIL NO-MORE-AUTHS</code>):</li>
+<li><strong>4000-CHECK-IF-EXPIRED</strong> computes the age of the detail record and flags it for deletion if old enough.</li>
+<li>If flagged, <strong>5000-DELETE-AUTH-DTL</strong> deletes the detail segment.</li>
+<li><strong>3000-FIND-NEXT-AUTH-DTL</strong> is called again to advance to the next detail (get-next-within-parent).</li>
+<li>After all details for a summary are processed, if the approved-auth counters are <code>&lt;= 0</code>, <strong>6000-DELETE-AUTH-SUMMARY</strong> deletes the summary (root) segment.</li>
+<li>If the number of summaries processed since the last checkpoint exceeds <code>P-CHKP-FREQ</code>, <strong>9000-TAKE-CHECKPOINT</strong> is called and the counter is reset.</li>
+<li><strong>2000-FIND-NEXT-AUTH-SUMMARY</strong> fetches the next summary segment, and the outer loop repeats.</li>
+</ul>
+</li>
+<li>After the loop ends (no more summaries or an error flag was set), a final <strong>9000-TAKE-CHECKPOINT</strong> is taken.</li>
+<li>
+<p>Summary statistics (summaries/details read and deleted) are displayed, then the program ends with <code>GOBACK</code>.</p>
+</li>
+<li>
+<p><strong>1000-INITIALIZE</strong> reads the current date (<code>ACCEPT ... FROM DATE/DAY</code>), reads run parameters from <code>SYSIN</code> into <code>PRM-INFO</code>, and applies defaults if parameters are missing or invalid: expiry days defaults to 5, checkpoint frequency defaults to 5, checkpoint-display frequency defaults to 10, and the debug flag defaults to <code>'N'</code>.</p>
+</li>
+<li>
+<p><strong>2000-FIND-NEXT-AUTH-SUMMARY</strong> issues an IMS <code>GN</code> (get-next) call against segment <code>PAUTSUM0</code> using PCB #2. A blank <code>DIBSTAT</code> means a record was found (counters incremented, current account ID saved); <code>'GB'</code> means end of database; any other status triggers <strong>9999-ABEND</strong>.</p>
+</li>
+<li>
+<p><strong>3000-FIND-NEXT-AUTH-DTL</strong> issues an IMS <code>GNP</code> (get-next-within-parent) call against segment <code>PAUTDTL1</code>. Blank status = record found; <code>'GE'</code> or <code>'GB'</code> = no more details for this parent; any other status aborts via <strong>9999-ABEND</strong>.</p>
+</li>
+<li>
+<p><strong>4000-CHECK-IF-EXPIRED</strong> computes <code>WS-AUTH-DATE</code> from <code>PA-AUTH-DATE-9C</code> (using a <code>99999 - date</code> inversion) and the day difference from the current Julian date (<code>CURRENT-YYDDD</code>). If the difference is &gt;= the expiry-days threshold, the record qualifies for deletion, and the summary's running approved/declined auth counts and amounts are decremented accordingly (based on <code>PA-AUTH-RESP-CODE</code>).</p>
+</li>
+<li>
+<p><strong>5000-DELETE-AUTH-DTL</strong> and <strong>6000-DELETE-AUTH-SUMMARY</strong> issue IMS <code>DLET</code> calls for the detail and summary segments respectively. Success (blank <code>DIBSTAT</code>) increments delete counters; failure aborts via <strong>9999-ABEND</strong>.</p>
+</li>
+<li>
+<p><strong>9000-TAKE-CHECKPOINT</strong> issues an IMS <code>CHKP</code> call with a rolling checkpoint ID (<code>WK-CHKPT-ID</code>). Success increments an internal checkpoint counter and periodically displays progress (based on <code>P-CHKP-DIS-FREQ</code>); failure aborts via <strong>9999-ABEND</strong>.</p>
+</li>
+<li>
+<p><strong>9999-ABEND</strong> displays an abend message, sets <code>RETURN-CODE</code> to 16, and terminates the program (<code>GOBACK</code>) — no rollback logic beyond the last successful checkpoint.</p>
+</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PSBPAUTB</code> (PCB #2, <code>PAUT-PCB-NUM</code>)</td>
+<td>IMS database (DL/I)</td>
+<td>Root/segment access to pending authorization data. Root segment <code>PAUTSUM0</code> and child segment <code>PAUTDTL1</code> are read (<code>GN</code>/<code>GNP</code>), and deleted (<code>DLET</code>).</td>
+</tr>
+<tr>
+<td><code>CIPAUSMY</code> (copybook)</td>
+<td>Layout</td>
+<td>Defines <code>PENDING-AUTH-SUMMARY</code> (root segment <code>PAUTSUM0</code>) fields, e.g. <code>PA-ACCT-ID</code>, <code>PA-APPROVED-AUTH-CNT</code>, <code>PA-APPROVED-AUTH-AMT</code>, <code>PA-DECLINED-AUTH-CNT</code>, <code>PA-DECLINED-AUTH-AMT</code>.</td>
+</tr>
+<tr>
+<td><code>CIPAUDTY</code> (copybook)</td>
+<td>Layout</td>
+<td>Defines <code>PENDING-AUTH-DETAILS</code> (child segment <code>PAUTDTL1</code>) fields, e.g. <code>PA-AUTH-DATE-9C</code>, <code>PA-AUTH-RESP-CODE</code>, <code>PA-APPROVED-AMT</code>, <code>PA-TRANSACTION-AMT</code>.</td>
+</tr>
+<tr>
+<td><code>SYSIN</code></td>
+<td>Input parameter stream</td>
+<td>Supplies <code>PRM-INFO</code> (expiry days, checkpoint frequency, checkpoint display frequency, debug flag) via <code>ACCEPT</code>.</td>
+</tr>
+<tr>
+<td><code>IO-PCB-MASK</code>, <code>PGM-PCB-MASK</code></td>
+<td>Linkage section (IMS-supplied PCBs)</td>
+<td>Standard IMS batch linkage parameters; <code>PGM-PCB-MASK</code> corresponds to the PSB's I/O PCB, not explicitly used beyond linkage declaration in the given source.</td>
+</tr>
+<tr>
+<td>Console/SYSOUT (via <code>DISPLAY</code>)</td>
+<td>Output</td>
+<td>Status messages, debug traces (when <code>P-DEBUG-FLAG = 'Y'</code>), error messages, and final run statistics (records read/deleted).</td>
+</tr>
+<tr>
+<td><code>RETURN-CODE</code></td>
+<td>Program exit status</td>
+<td>Set to 16 on abend (<code>9999-ABEND</code>); otherwise defaults to 0 on normal completion.</td>
+</tr>
+</tbody>
+</table>
+<p>No relational/SQL tables are used (<code>sql_tables</code> is empty) — this program works exclusively against IMS hierarchical data via DL/I calls, and no separate sequential files (<code>files</code> list is empty) are declared in <code>FILE-CONTROL</code>.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No explicit PSB schedule call is visible in this source.</strong> <code>WS-IMS-VARIABLES</code> defines <code>PSB-NAME</code>, <code>PAUT-PCB-NUM</code>, and an <code>IMS-PSB-SCHD-FLG</code>, but no <code>EXEC DLI PCB</code>/schedule statement appears in the given PROCEDURE DIVISION — scheduling is likely handled by the batch driver/JCL (PSB <code>PSBPAUTB</code>) rather than in-program. Confirm this externally if PSB scheduling logic is expected.</li>
+<li><strong>Hard-coded defaults</strong>: expiry days = 5, checkpoint frequency = 5, checkpoint-display frequency = 10, debug flag = 'N' — all applied only if <code>SYSIN</code> parameters are missing/invalid/zero. These are business-relevant thresholds hidden in code rather than externally documented.</li>
+<li><strong>Suspicious duplicate condition</strong>: in <code>MAIN-PARA</code>, the summary-delete-eligibility check reads <code>IF PA-APPROVED-AUTH-CNT &lt;= 0 AND PA-APPROVED-AUTH-CNT &lt;= 0</code> — the same field is checked twice; this looks like a bug where <code>PA-DECLINED-AUTH-CNT</code> was probably intended for the second condition. As written, declined-count is never checked before deleting a summary.</li>
+<li><strong>Date logic is non-obvious</strong>: <code>WS-AUTH-DATE</code> is derived via <code>99999 - PA-AUTH-DATE-9C</code>, implying <code>PA-AUTH-DATE-9C</code> is stored as an inverted Julian date (common IMS/DL/I technique to allow ascending key order for descending date sort). This transform must be preserved correctly if re-implemented.</li>
+<li><strong>Error handling is fail-fast and blunt</strong>: any unexpected <code>DIBSTAT</code> from IMS calls (GN, GNP, DLET, CHKP) immediately triggers <strong>9999-ABEND</strong>, which sets <code>RETURN-CODE = 16</code> and stops the whole job — there's no partial-retry or granular recovery beyond the last successful checkpoint (<code>CHKP</code>).</li>
+<li><strong>Checkpointing</strong> relies on a rolling 4-digit counter (<code>WK-CHKPT-ID-CTR</code>) appended to the literal <code>'RMAD'</code>; the counter itself is never shown being incremented in the given source, meaning every checkpoint may use the same ID (<code>RMAD0000</code>) unless incremented elsewhere not visible here — worth verifying, as reused checkpoint IDs can be problematic for IMS restart processing.</li>
+<li><strong>Debug output</strong> is controlled by <code>P-DEBUG-FLAG</code> (<code>DEBUG-ON</code>) and adds extra <code>DISPLAY</code> statements at several points (record reads and deletes) — useful for troubleshooting but should be disabled in production runs to avoid excessive log volume.</li>
+<li><strong>No SQL/DB2 access</strong> and <strong>no CICS commands</strong> are used; this is a pure batch/IMS program, which is important context for anyone assuming this uses relational tables based on similarly named copybooks elsewhere in the CardDemo application.</li>
+</ul>
 <h2 id="copybooks">Copybooks</h2>
 <p><code>CIPAUDTY</code>, <code>CIPAUSMY</code></p>
 <h2 id="paragraph-flow">Paragraph flow</h2>

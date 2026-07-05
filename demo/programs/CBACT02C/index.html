@@ -1729,24 +1729,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBACT02C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1763,91 +1745,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,68 @@
 <h1 id="cbact02c">CBACT02C</h1>
 <p>Source: <code>cbl/CBACT02C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbact02c-card-data-file-reader">CBACT02C — Card Data File Reader</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This is a batch COBOL program that reads a card data file (VSAM KSDS) sequentially and prints each record to the job output. It appears to be a simple utility/extract program used to dump the contents of the card master file for review, auditing, or debugging purposes — it performs no calculations, updates, or business logic beyond reading and displaying records. It runs as part of job step <strong>READCARD.STEP05</strong>.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The main <code>PROCEDURE DIVISION</code> logic is a straightforward read loop:</p>
+<ol>
+<li><strong><code>0000-CARDFILE-OPEN</code></strong> — Opens <code>CARDFILE-FILE</code> for input. If the open fails (file status ≠ <code>'00'</code>), it displays an error, logs the I/O status, and abends the program.</li>
+<li><strong>Main loop</strong> — Repeatedly performs <strong><code>1000-CARDFILE-GET-NEXT</code></strong> until <code>END-OF-FILE</code> is set to <code>'Y'</code>. For each successfully read record, the program displays the record (<code>DISPLAY CARD-RECORD</code>) to standard output/job log.</li>
+<li><strong><code>1000-CARDFILE-GET-NEXT</code></strong> — Reads the next record from <code>CARDFILE-FILE</code> into <code>CARD-RECORD</code> (from copybook <code>CVACT02Y</code>). It translates the VSAM file status into an internal <code>APPL-RESULT</code> code:</li>
+<li>Status <code>'00'</code> → success (<code>APPL-RESULT = 0</code>)</li>
+<li>Status <code>'10'</code> → end-of-file (<code>APPL-RESULT = 16</code>, sets <code>END-OF-FILE = 'Y'</code>)</li>
+<li>Any other status → treated as an error (<code>APPL-RESULT = 12</code>), which triggers an error display, I/O status dump, and program abend.</li>
+<li><strong><code>9000-CARDFILE-CLOSE</code></strong> — Closes the file once the loop ends. Any non-zero close status also triggers an abend.</li>
+<li>Error paths converge on two shared paragraphs:</li>
+<li><strong><code>9910-DISPLAY-IO-STATUS</code></strong> — Formats and displays the raw VSAM file status code (handles both numeric and non-numeric/'9' status values differently to render a readable 4-digit status).</li>
+<li><strong><code>9999-ABEND-PROGRAM</code></strong> — Sets an abend code (<code>ABCODE = 999</code>) and calls the LE runtime service <code>CEE3ABD</code> to terminate the program abnormally.</li>
+</ol>
+<p>Start/end of execution are marked with <code>DISPLAY</code> messages for job log tracing.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CARDFILE-FILE</code> (DD <code>CARDFILE</code>)</td>
+<td>Input file (VSAM KSDS, indexed, sequential access)</td>
+<td>The card data file being read. Record layout: <code>FD-CARD-NUM</code> (PIC X(16), also the record key) + <code>FD-CARD-DATA</code> (PIC X(134)).</td>
+</tr>
+<tr>
+<td><code>CVACT02Y</code> (copybook)</td>
+<td>Working-storage layout</td>
+<td>Defines <code>CARD-RECORD</code>, the structure into which each card record is moved for display. Not shown in provided source, but referenced via <code>COPY CVACT02Y.</code></td>
+</tr>
+<tr>
+<td>Job log / SYSOUT</td>
+<td>Output</td>
+<td>Every card record read is written via <code>DISPLAY CARD-RECORD</code>; status/error messages are also displayed here.</td>
+</tr>
+<tr>
+<td><code>CEE3ABD</code> (external call)</td>
+<td>Runtime service</td>
+<td>Language Environment routine used to abnormally terminate the program on unrecoverable errors.</td>
+</tr>
+</tbody>
+</table>
+<p>No CICS commands and no SQL/DB2 tables are used — this is a pure batch, file-only program.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No business logic</strong>: this program only reads and prints; it does not validate, transform, or write card data anywhere. Treat it as a diagnostic/reporting utility rather than part of the core processing chain.</li>
+<li><strong>Hard-coded abend code</strong>: <code>ABCODE</code> is always set to <code>999</code> regardless of the actual error, and <code>TIMING</code> is always <code>0</code>. This means all abends look identical from the return code alone — the real cause must be found in the preceding <code>DISPLAY</code> messages (error text + file status).</li>
+<li><strong>File status handling is coarse</strong>: any status other than <code>'00'</code> (success) or <code>'10'</code> (EOF) is collapsed into a generic <code>APPL-RESULT = 12</code> "error" — the specific VSAM status code is only visible via the <code>9910-DISPLAY-IO-STATUS</code> display, not through distinct handling logic.</li>
+<li><strong>Abend on any error</strong>: open, read, or close failures all immediately call <code>9999-ABEND-PROGRAM</code>, terminating the whole job — there is no retry or graceful degradation.</li>
+<li><strong>Odd arithmetic idioms</strong>: <code>9000-CARDFILE-CLOSE</code> uses <code>ADD 8 TO ZERO GIVING APPL-RESULT</code> and <code>SUBTRACT APPL-RESULT FROM APPL-RESULT</code> instead of simple <code>MOVE</code> statements. Functionally equivalent, but stylistically unusual — worth noting for maintainers unfamiliar with COBOL idioms.</li>
+<li><strong>Commented-out debug line</strong>: inside <code>1000-CARDFILE-GET-NEXT</code>, a <code>DISPLAY CARD-RECORD</code> line is commented out — the actual display of each record happens instead in the main loop in <code>PROCEDURE DIVISION</code>, so this comment is legacy/dead and could be misleading during maintenance.</li>
+<li><strong>File status field reuse</strong>: <code>IO-STATUS-04</code> and <code>TWO-BYTES-BINARY</code>/<code>TWO-BYTES-ALPHA</code> are used to reformat the 2-byte VSAM status into a 4-digit display string; the logic branches based on whether the status is numeric or the first byte is <code>'9'</code>, indicating some VSAM status codes (e.g., extended status codes starting with '9') require special decoding — this is a common but non-obvious COBOL/VSAM pattern.</li>
+<li><strong>No dynamic file name/parameters</strong>: the file is statically assigned to DD <code>CARDFILE</code>; any change to the input file requires a JCL change, not a program change.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

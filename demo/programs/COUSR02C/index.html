@@ -2765,24 +2765,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COUSR02C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2799,69 +2781,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,82 @@
 <h1 id="cousr02c">COUSR02C</h1>
 <p>Source: <code>cbl/COUSR02C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cousr02c-update-user">COUSR02C — Update User</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This is a CICS BMS (screen-based) program in the CardDemo mainframe application that lets an administrator update an existing user's details (first name, last name, password, and user type) in the security file (<code>USRSEC</code>). It is part of the user-administration subsystem, invoked from <code>COADM01C</code> (or reached from a sign-on flow) and returns to the calling program when the operator is done.</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>MAIN-PARA</strong> is the entry point for every CICS invocation of the transaction (<code>CU02</code>).</li>
+<li>If <code>EIBCALEN = 0</code> (program invoked with no commarea), it treats this as an error/direct-start condition, sets the return target to <code>COSGN00C</code>, and performs <strong>RETURN-TO-PREV-SCREEN</strong> immediately.</li>
+<li>Otherwise it copies the incoming commarea into <code>CARDDEMO-COMMAREA</code>.<ul>
+<li><strong>First entry</strong> (<code>NOT CDEMO-PGM-REENTER</code>): initializes the output map, and if a user ID was already passed in via <code>CDEMO-CU02-USR-SELECTED</code> (e.g., selected from a prior user-list screen), it pre-loads that ID and performs <strong>PROCESS-ENTER-KEY</strong> to look the user up automatically, then sends the screen (<strong>SEND-USRUPD-SCREEN</strong>).</li>
+<li><strong>Subsequent entries</strong> (re-entrant, screen already sent): receives the operator's input (<strong>RECEIVE-USRUPD-SCREEN</strong>) and dispatches based on the AID key pressed:</li>
+<li><strong>ENTER</strong> → <strong>PROCESS-ENTER-KEY</strong> (look up the user by ID entered).</li>
+<li><strong>PF3</strong> → <strong>UPDATE-USER-INFO</strong>, then navigates back to the calling program (<code>CDEMO-FROM-PROGRAM</code>, defaulting to <code>COADM01C</code>) via <strong>RETURN-TO-PREV-SCREEN</strong>.</li>
+<li><strong>PF4</strong> → <strong>CLEAR-CURRENT-SCREEN</strong> (reset all input fields).</li>
+<li><strong>PF5</strong> → <strong>UPDATE-USER-INFO</strong> (save changes but stay on screen).</li>
+<li><strong>PF12</strong> → returns to <code>COADM01C</code> via <strong>RETURN-TO-PREV-SCREEN</strong> without saving.</li>
+<li><strong>Any other key</strong> → sets an error flag/message ("Invalid key pressed") and redisplays the screen.</li>
+</ul>
+</li>
+<li><strong>PROCESS-ENTER-KEY</strong> validates that a User ID was entered; if not, flags an error and redisplays. Otherwise it clears the display fields, moves the entered ID into <code>SEC-USR-ID</code>, and performs <strong>READ-USER-SEC-FILE</strong> to fetch the current record, then repopulates the screen fields with the retrieved name/password/type and redisplays.</li>
+<li><strong>UPDATE-USER-INFO</strong> validates that User ID, First Name, Last Name, Password, and User Type are all non-blank (each failure sets an error and redisplays immediately). If validation passes, it re-reads the user record (<strong>READ-USER-SEC-FILE</strong>) and compares each field to the values on screen; any difference sets <code>USR-MODIFIED-YES</code>. If something actually changed, it performs <strong>UPDATE-USER-SEC-FILE</strong> to persist the change; otherwise it displays "Please modify to update..." without writing.</li>
+<li><strong>READ-USER-SEC-FILE</strong> issues a CICS <code>READ</code> on the <code>USRSEC</code> file with <code>UPDATE</code> (for later rewrite), and branches on the response: NORMAL (record found — shows a "press PF5 to save" prompt), NOTFND (shows "User ID NOT found"), or any other response (shows "Unable to lookup User" and logs RESP/REAS via <code>DISPLAY</code>).</li>
+<li><strong>UPDATE-USER-SEC-FILE</strong> issues a CICS <code>REWRITE</code> and similarly branches: NORMAL (confirms with a green "User XXXX has been updated..." message), NOTFND, or OTHER (generic failure with logged RESP/REAS).</li>
+<li><strong>CLEAR-CURRENT-SCREEN</strong> / <strong>INITIALIZE-ALL-FIELDS</strong> blank all input fields and the message line and redisplay the screen.</li>
+<li><strong>SEND-USRUPD-SCREEN</strong> always performs <strong>POPULATE-HEADER-INFO</strong> (title, transaction/program name, current date/time) before sending the <code>COUSR2A</code> map from mapset <code>COUSR02</code>.</li>
+<li><strong>RETURN-TO-PREV-SCREEN</strong> defaults the target program to <code>COSGN00C</code> if none is set, stamps the commarea with this program's tran ID/name as the "from" info, resets <code>CDEMO-PGM-CONTEXT</code>, and performs an <code>XCTL</code> to hand off control.</li>
+<li>Control always ends with <code>EXEC CICS RETURN TRANSID('CU02') COMMAREA(...)</code>, making the transaction pseudo-conversational (state is round-tripped via the commarea between screen interactions).</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USRSEC</code></td>
+<td>VSAM file (CICS dataset, hard-coded name <code>WS-USRSEC-FILE = 'USRSEC  '</code>)</td>
+<td>Stores user security records (ID, first/last name, password, user type). Read with <code>UPDATE</code> option and rewritten to persist edits.</td>
+</tr>
+<tr>
+<td><code>DFHCOMMAREA</code> / <code>CARDDEMO-COMMAREA</code></td>
+<td>CICS commarea (linkage section, up to 32767 bytes)</td>
+<td>Carries cross-program state: reentry flag, from/to program &amp; tranid, and the selected user ID (<code>CDEMO-CU02-USR-SELECTED</code>) passed in from a prior screen (e.g., a user list).</td>
+</tr>
+<tr>
+<td><code>COUSR2A</code> map / <code>COUSR02</code> mapset</td>
+<td>BMS screen (SEND/RECEIVE)</td>
+<td>The user-update screen: displays/collects User ID, First Name, Last Name, Password, User Type, and an error/status message line.</td>
+</tr>
+<tr>
+<td>Copybooks: <code>COCOM01Y</code>, <code>COTTL01Y</code>, <code>COUSR02</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CSUSR01Y</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Working-storage layouts</td>
+<td><code>COCOM01Y</code> = common commarea layout; <code>COUSR02</code> = map layout (<code>COUSR2AI</code>/<code>COUSR2AO</code>); <code>CSUSR01Y</code> = security file record layout (<code>SEC-USER-DATA</code>, <code>SEC-USR-ID</code>, etc.); <code>CSMSG01Y</code> = standard message text (e.g., <code>CCDA-MSG-INVALID-KEY</code>); <code>CSDAT01Y</code> = date/time working fields; <code>COTTL01Y</code> = screen title constants; <code>DFHAID</code>/<code>DFHBMSCA</code> = CICS AID key and attribute constants.</td>
+</tr>
+<tr>
+<td>No SQL tables</td>
+<td>—</td>
+<td>This program does not use DB2/SQL; all persistence is via the <code>USRSEC</code> CICS file.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No SQL access</strong> — despite being part of "CardDemo," this program is pure CICS file I/O (VSAM <code>USRSEC</code>), not DB2.</li>
+<li><strong>Hard-coded values</strong>: transaction ID <code>'CU02'</code>, program name <code>'COUSR02C'</code>, dataset name <code>'USRSEC  '</code>, default fallback programs <code>'COSGN00C'</code> (no commarea / no from-program) and <code>'COADM01C'</code> (default caller for PF3/PF12).</li>
+<li><strong>Error handling is response-code driven</strong> but generic: any non-NORMAL/NOTFND response from READ or REWRITE falls into a catch-all <code>OTHER</code> branch that just displays "Unable to lookup/Update User..." and logs <code>WS-RESP-CD</code>/<code>WS-REAS-CD</code> via <code>DISPLAY</code> (goes to CICS transient log, not visible to the operator) — no distinct handling for e.g. record-locked or duplicate conditions.</li>
+<li><strong>"No changes" is treated as a soft warning, not an error</strong> — if PF5/PF3 is pressed but none of the four fields actually changed, the record is <em>not</em> rewritten; the user just sees "Please modify to update...".</li>
+<li><strong>Double-read pattern</strong>: the record is read once in <code>PROCESS-ENTER-KEY</code> (to populate the screen) and read <em>again</em> in <code>UPDATE-USER-INFO</code> before rewriting — this second read also uses <code>UPDATE</code>, which holds a lock on the VSAM record until the following REWRITE/READ completes; if the rewrite is skipped (no changes), the lock is presumably released by CICS at sync point/return, but no explicit <code>UNLOCK</code> is issued in the "no changes" path.</li>
+<li><strong>Screen-driven control flow</strong> relies on <code>CDEMO-PGM-REENTER</code> in the commarea to distinguish first-time invocation from a post-screen-send re-entry — a classic CICS pseudo-conversational pattern; if the commarea is corrupted or missing this flag, behavior could misfire (e.g., re-triggering the initial branch).</li>
+<li><strong>Field-level validation order</strong> in <code>UPDATE-USER-INFO</code> is sequential (User ID → First Name → Last Name → Password → User Type) with only the <em>first</em> failing field reported per submission — the user may need multiple round trips to satisfy all validations.</li>
+<li>The password field is handled as <strong>plain text</strong> (<code>SEC-USR-PWD</code>) with no evident masking/encryption logic in this program — worth flagging for any security review.</li>
+<li>The <code>PF3</code> path performs <code>UPDATE-USER-INFO</code> (which may fail validation and redisplay the <em>same</em> screen) but the code unconditionally proceeds to <code>RETURN-TO-PREV-SCREEN</code> afterward regardless of whether the update succeeded or an error flag was set — meaning PF3 could exit the screen even when validation failed and nothing was saved. Worth confirming this is intended behavior rather than a bug, since PF5 (save-and-stay) does not exhibit this same exit behavior.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>READ</code>, <code>REWRITE</code></p>
 <h2 id="copybooks">Copybooks</h2>

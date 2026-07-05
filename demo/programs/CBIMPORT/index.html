@@ -1869,24 +1869,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBIMPORT
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1903,91 +1885,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,94 @@
 <h1 id="cbimport">CBIMPORT</h1>
 <p>Source: <code>cbl/CBIMPORT.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbimport-customer-data-import-from-branch-migration-export">CBIMPORT — Customer Data Import from Branch Migration Export</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBIMPORT is a batch COBOL program that imports customer data from a "branch migration" export file into the CardDemo application's normalized file structure. It reads a single multi-record-type input file and splits its contents into separate flat files for customers, accounts, card-cross-references, transactions, and cards, based on a record-type code found in each input record. Records with an unrecognized type are logged to a separate error file rather than causing the job to fail.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>0000-MAIN-PROCESSING</code>, which calls four stages in sequence: <code>1000-INITIALIZE</code>, <code>2000-PROCESS-EXPORT-FILE</code>, <code>3000-VALIDATE-IMPORT</code>, and <code>4000-FINALIZE</code>, then ends the program with <code>GOBACK</code>.</p>
+<ol>
+<li><strong>Initialization (<code>1000-INITIALIZE</code>)</strong> — Displays a start message, derives an import date/time stamp from <code>FUNCTION CURRENT-DATE</code>, and calls <code>1100-OPEN-FILES</code> to open the input file and all six output files.</li>
+<li><strong>Main read loop (<code>2000-PROCESS-EXPORT-FILE</code>)</strong> — Reads the first export record via <code>2100-READ-EXPORT-RECORD</code>, then loops (<code>PERFORM UNTIL WS-EXPORT-EOF</code>) reading and dispatching each record until end-of-file, incrementing <code>WS-TOTAL-RECORDS-READ</code> for each record read.</li>
+<li><strong>Record dispatch (<code>2200-PROCESS-RECORD-BY-TYPE</code>)</strong> — Examines <code>EXPORT-REC-TYPE</code> and routes to one of six paragraphs based on a single-character code:</li>
+<li><code>'C'</code> → <code>2300-PROCESS-CUSTOMER-RECORD</code></li>
+<li><code>'A'</code> → <code>2400-PROCESS-ACCOUNT-RECORD</code></li>
+<li><code>'X'</code> → <code>2500-PROCESS-XREF-RECORD</code></li>
+<li><code>'T'</code> → <code>2600-PROCESS-TRAN-RECORD</code></li>
+<li><code>'D'</code> → <code>2650-PROCESS-CARD-RECORD</code></li>
+<li>anything else → <code>2700-PROCESS-UNKNOWN-RECORD</code></li>
+<li><strong>Per-type mapping paragraphs (2300/2400/2500/2600/2650)</strong> — Each <code>INITIALIZE</code>s its target record, moves individual fields from the <code>EXPORT-RECORD</code> layout (from copybook <code>CVEXPORT</code>) into the corresponding output record layout (customer, account, xref, transaction, or card), <code>WRITE</code>s the record, checks the file status, and increments a per-type counter (e.g., <code>WS-CUSTOMER-RECORDS-IMPORTED</code>).</li>
+<li><strong>Unknown records (<code>2700-PROCESS-UNKNOWN-RECORD</code> → <code>2750-WRITE-ERROR</code>)</strong> — Increments <code>WS-UNKNOWN-RECORD-TYPE-COUNT</code>, builds an error record (timestamp, record type, sequence number, fixed message text) and writes it to the error file via <code>2750-WRITE-ERROR</code>, which also increments <code>WS-ERROR-RECORDS-WRITTEN</code>.</li>
+<li><strong>Validation (<code>3000-VALIDATE-IMPORT</code>)</strong> — Currently just displays two static messages ("Import validation completed" / "No validation errors detected"); it does not perform any actual data validation despite the paragraph name and the header comment's claim of "checksum" validation.</li>
+<li><strong>Finalize (<code>4000-FINALIZE</code>)</strong> — Closes all seven files and displays a summary of statistics: total records read, and counts imported/written per record type/error.</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / Select</th>
+<th>DD Name</th>
+<th>Direction</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EXPORT-INPUT</td>
+<td>EXPFILE</td>
+<td>Input</td>
+<td>Multi-record-type export file (500-byte records); layout defined by copybook <code>CVEXPORT</code>. Declared as INDEXED with a RECORD KEY (<code>EXPORT-SEQUENCE-NUM</code>) but accessed sequentially.</td>
+</tr>
+<tr>
+<td>CUSTOMER-OUTPUT</td>
+<td>CUSTOUT</td>
+<td>Output</td>
+<td>Normalized customer records (500 bytes), layout from <code>CVCUS01Y</code>.</td>
+</tr>
+<tr>
+<td>ACCOUNT-OUTPUT</td>
+<td>ACCTOUT</td>
+<td>Output</td>
+<td>Normalized account records (300 bytes), layout from <code>CVACT01Y</code>.</td>
+</tr>
+<tr>
+<td>XREF-OUTPUT</td>
+<td>XREFOUT</td>
+<td>Output</td>
+<td>Card-to-customer/account cross-reference records (50 bytes), layout from <code>CVACT03Y</code>.</td>
+</tr>
+<tr>
+<td>TRANSACTION-OUTPUT</td>
+<td>TRNXOUT</td>
+<td>Output</td>
+<td>Transaction records (350 bytes), layout from <code>CVTRA05Y</code>.</td>
+</tr>
+<tr>
+<td>CARD-OUTPUT</td>
+<td>CARDOUT</td>
+<td>Output</td>
+<td>Card records (150 bytes), layout from <code>CVACT02Y</code>.</td>
+</tr>
+<tr>
+<td>ERROR-OUTPUT</td>
+<td>ERROUT</td>
+<td>Output</td>
+<td>Error/rejection log (132 bytes) for records with an unrecognized record-type code.</td>
+</tr>
+</tbody>
+</table>
+<p>Copybooks used: <code>CVACT01Y</code>, <code>CVACT02Y</code>, <code>CVACT03Y</code>, <code>CVCUS01Y</code>, <code>CVEXPORT</code>, <code>CVTRA05Y</code>. No CICS commands or SQL tables are used — this is a pure batch, file-to-file program (executed as job step <code>CBIMPORT.STEP01</code>).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No SQL/CICS involvement</strong> — this program only reads/writes flat files; there is no database interaction to model when modernizing.</li>
+<li><strong>Aggressive error handling (fail-fast)</strong> — Any file-open failure, any read error (other than EOF), or any write failure on the customer, account, xref, transaction, or card outputs immediately triggers <code>9999-ABEND-PROGRAM</code>, which calls <code>CEE3ABD</code> (a LE abend routine) and terminates the job. There is no retry or partial-recovery logic — a single bad write anywhere aborts the whole import.</li>
+<li><strong>Inconsistent error handling for the error file itself</strong> — Unlike the other outputs, a failure writing to <code>ERROR-OUTPUT</code> in <code>2750-WRITE-ERROR</code> is only displayed, not abended; the program continues processing.</li>
+<li><strong>"Validation" is a no-op</strong> — <code>3000-VALIDATE-IMPORT</code> only prints static "success" messages; despite the program header's stated business goal of "Validate data integrity using checksums," no actual checksum or integrity validation logic exists in the code as extracted. Documentation/business expectations may be out of sync with the actual implementation.</li>
+<li><strong>Unknown record types are tolerated, not fatal</strong> — Any record whose type code isn't C/A/X/T/D is logged to the error file with a fixed message ("Unknown record type encountered") and processing continues; these are not counted as failures for abend purposes.</li>
+<li><strong>Hard-coded layout assumptions</strong> — Field-level mapping between <code>EXPORT-RECORD</code> (from <code>CVEXPORT</code>) and each target record is done via direct one-to-one <code>MOVE</code> statements; any mismatch in copybook definitions between the export layout and target layouts would silently truncate/misalign data rather than raise an error.</li>
+<li><strong>EXPORT-INPUT is declared INDEXED with a key but read sequentially</strong> — the <code>SELECT</code> clause specifies <code>ORGANIZATION IS INDEXED</code> with <code>RECORD KEY IS EXPORT-SEQUENCE-NUM</code>, yet the access mode is SEQUENTIAL and processing simply reads until EOF; this is unusual for a plain import file and worth confirming with the team whether indexed access was intended elsewhere.</li>
+<li><strong>Statistics are display-only</strong> — Counts (records read, per-type imported, errors, unknown types) are only written to <code>DISPLAY</code> (job log) output at the end of the run; there's no separate report file or return code differentiation based on these counts.</li>
+<li><strong>No non-zero return code logic observed</strong> — Aside from the abend path, the program does not appear to set an explicit <code>RETURN-CODE</code> for partial success/failure scenarios like unknown records or error-file write failures; downstream job steps relying on condition codes should be reviewed against actual runtime behavior.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

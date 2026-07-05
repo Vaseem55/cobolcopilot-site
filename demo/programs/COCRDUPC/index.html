@@ -2317,24 +2317,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COCRDUPC
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2351,69 +2333,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,104 @@
 <h1 id="cocrdupc">COCRDUPC</h1>
 <p>Source: <code>cbl/COCRDUPC.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cocrdupc-credit-card-detail-update">COCRDUPC — Credit Card Detail Update</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COCRDUPC is a CICS-BMS transaction (mapset <code>COCRDUP</code>, map <code>CCRDUPA</code>, transaction ID <code>CCUP</code>) that lets a card-services user look up a single credit card by account number and/or card number, review its embossed name, expiry date and active status, and submit changes to that record. It supports a multi-step conversational flow: enter search keys → review fetched data → edit fields → confirm → commit the update, with a distinct message shown to the user at each step. This is the "update" counterpart to a card-list/inquiry screen (<code>COCRDLIC</code>) and hands off to a menu program (<code>COMEN01C</code>) or the card-list program on exit.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The program is pseudo-conversational: it re-enters via CICS RETURN/XCTL, using <code>DFHCOMMAREA</code> to carry state (<code>CARDDEMO-COMMAREA</code> plus a program-specific area <code>WS-THIS-PROGCOMMAREA</code>) between calls.</p>
+<ol>
+<li><strong>0000-MAIN</strong> sets up an abend handler (<code>HANDLE ABEND</code> → <code>ABEND-ROUTINE</code>), initializes working storage, and restores state from <code>DFHCOMMAREA</code> (or initializes fresh state if <code>EIBCALEN = 0</code> or the caller was the menu program and this is a first entry).</li>
+<li><code>YYYY-STORE-PFKEY</code> normalizes/records which PF key the user pressed. Main then validates that the pressed key is one of the allowed ones (Enter, PF3, PF5-when-changes-pending, PF12-when-details-fetched); if not, it's forced to "Enter" behavior.</li>
+<li>A large <code>EVALUATE TRUE</code> in <code>0000-MAIN</code> decides the path:</li>
+<li><strong>PF3 pressed, or update completed/failed and caller was the card-list screen</strong> — sets up <code>CDEMO-TO-PROGRAM</code>/<code>TRANID</code>, does a <code>SYNCPOINT</code>, and <code>XCTL</code>s back to the calling program (falls back to the menu program/tranid if none recorded).</li>
+<li><strong>Entered from the card-list program (fresh or via PF12)</strong> — treats the incoming account/card number as the search key, calls <code>9000-READ-DATA</code> to fetch the card, marks details as "show", and sends the map, then returns.</li>
+<li><strong>Fresh entry from the menu, details not yet fetched</strong> — initializes the program commarea and sends a blank input screen prompting for search keys.</li>
+<li><strong>Update just completed or failed</strong> — resets keys/storage, re-prompts for a new search.</li>
+<li><strong>All other cases (normal user interaction on the screen)</strong> — runs <code>1000-PROCESS-INPUTS</code> (receive &amp; edit the map), <code>2000-DECIDE-ACTION</code> (read data or write the update), then <code>3000-SEND-MAP</code> to redraw the screen with results/messages.</li>
+<li><strong>1000-PROCESS-INPUTS</strong> calls <code>1100-RECEIVE-MAP</code> to pull the fields off the BMS map into working storage (treating <code>*</code> or blank input as "not supplied"/low-values), then <code>1200-EDIT-MAP-INPUTS</code>.</li>
+<li><strong>1200-EDIT-MAP-INPUTS</strong> behaves differently depending on state:</li>
+<li>If details haven't been fetched yet, it validates only the search keys (<code>1210-EDIT-ACCOUNT</code>, <code>1220-EDIT-CARD</code>) and exits early — no other field edits run at this stage.</li>
+<li>Otherwise it compares the new field values to the previously-fetched values; if identical (case-insensitive) or if the record was already confirmed/committed, it skips validation and treats the record as unchanged.</li>
+<li>If changes are detected, it runs <code>1230-EDIT-NAME</code>, <code>1240-EDIT-CARDSTATUS</code>, <code>1250-EDIT-EXPIRY-MON</code>, <code>1260-EDIT-EXPIRY-YEAR</code>, and sets the record's change-state to "OK, not yet confirmed" if all pass.</li>
+<li><strong>2000-DECIDE-ACTION</strong> performs <code>9000-READ-DATA</code> (which calls <code>9100-GETCARD-BYACCTCARD</code>) to (re)fetch the card, or <code>9200-WRITE-PROCESSING</code> (which calls <code>9300-CHECK-CHANGE-IN-REC</code>) to commit an update, invoking <code>ABEND-ROUTINE</code> on unrecoverable errors.</li>
+<li><strong>3000-SEND-MAP</strong> rebuilds the screen: <code>3100-SCREEN-INIT</code> (blank/init the map), <code>3200-SETUP-SCREEN-VARS</code> (populate fields), <code>3250-SETUP-INFOMSG</code> (pick an informational message via <code>WS-INFO-MSG</code> 88-levels), <code>3300-SETUP-SCREEN-ATTRS</code> (set field attributes, e.g., protect/color), and <code>3400-SEND-SCREEN</code> (the actual <code>SEND MAP</code>).</li>
+<li><strong>COMMON-RETURN</strong> copies the error message into the map's error field, reassembles the combined commarea (<code>CARDDEMO-COMMAREA</code> + <code>WS-THIS-PROGCOMMAREA</code>), and issues <code>EXEC CICS RETURN TRANSID(...) COMMAREA(...)</code> to await the next user interaction.</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DFHCOMMAREA</code></td>
+<td>CICS commarea (linkage section)</td>
+<td>Carries <code>CARDDEMO-COMMAREA</code> (shared navigation/context data) plus this program's own state (<code>WS-THIS-PROGCOMMAREA</code>, holding old/new card field values and change-status flags) between conversational turns.</td>
+</tr>
+<tr>
+<td><code>CCRDUPAI</code> / map <code>CCRDUPA</code>, mapset <code>COCRDUP</code></td>
+<td>BMS map (RECEIVE MAP / SEND MAP)</td>
+<td>Screen I/O: account ID, card number, name, status, expiry month/year/day, and error/info message fields.</td>
+</tr>
+<tr>
+<td>Card data file (via <code>9100-GETCARD-BYACCTCARD</code>, literal <code>CARDDAT</code>)</td>
+<td>VSAM/file (accessed through copybook <code>CVACT02Y</code> layout)</td>
+<td>Source of the card record read/updated by account+card key (<code>WS-CARD-RID</code>); no direct <code>SELECT</code>/FD is shown in the parsed facts, only the record layout and file-name literal, so the exact I/O statements (READ/REWRITE) live inside <code>9100-GETCARD-BYACCTCARD</code>/<code>9200-WRITE-PROCESSING</code>, not shown in the excerpt provided.</td>
+</tr>
+<tr>
+<td>Card account-index path (literal <code>CARDAIX</code>)</td>
+<td>Alternate index file name literal</td>
+<td>Referenced as <code>LIT-CARDFILENAME-ACCT-PATH</code>; likely used for account-based lookup, but no parsed file/SQL facts confirm how it's opened — <strong>unclear from given facts</strong>.</td>
+</tr>
+<tr>
+<td><code>COCOM01Y</code> (<code>CARDDEMO-COMMAREA</code>), <code>CVCRD01Y</code>, <code>CVCUS01Y</code>, <code>CVACT02Y</code> copybooks</td>
+<td>Data layouts</td>
+<td>Shared navigation fields, card-processing work fields, customer and card record layouts.</td>
+</tr>
+<tr>
+<td><code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CSMSG02Y</code>, <code>CSUSR01Y</code> copybooks</td>
+<td>Common working storage</td>
+<td>Screen titles, current date, common message text, abend info, signed-on user data.</td>
+</tr>
+<tr>
+<td><code>DFHBMSCA</code>, <code>DFHAID</code></td>
+<td>IBM copybooks</td>
+<td>BMS attribute and AID (PF key) constants.</td>
+</tr>
+<tr>
+<td>Program <code>COCRDLIC</code> (<code>XCTL</code>)</td>
+<td>Outbound program call</td>
+<td>Card-list screen, one possible return target after PF3/complete/fail.</td>
+</tr>
+<tr>
+<td>Program <code>COMEN01C</code> (<code>XCTL</code>)</td>
+<td>Outbound program call</td>
+<td>Main menu, default return target when no prior caller is known.</td>
+</tr>
+<tr>
+<td><code>sql_tables: []</code></td>
+<td>—</td>
+<td>No embedded SQL is present in the parsed facts; all data access appears to be via CICS file control (not shown in the excerpt) rather than DB2.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Truncated source</strong>: the provided source cuts off mid-paragraph (<code>1210-EDIT-ACCOUNT</code>, ends at "IF W..."), so the exact numeric/length validation logic for account and card numbers, and the full bodies of <code>9100-GETCARD-BYACCTCARD</code>, <code>9200-WRITE-PROCESSING</code>, <code>9300-CHECK-CHANGE-IN-REC</code>, and <code>ABEND-ROUTINE</code> are not shown here — described behavior for those paragraphs is inferred from names/flow, not verified in detail.</li>
+<li><strong>No SQL / file facts extracted</strong>: the parser found zero SQL tables and an empty <code>files</code> list, even though the code clearly reads/writes a card file (literal <code>CARDDAT</code>) and references an alternate index (<code>CARDAIX</code>). Treat file-access details as unconfirmed until the missing paragraph bodies are reviewed.</li>
+<li><strong><code>*</code> as a wildcard/clear convention</strong>: user input of <code>*</code> or spaces in account, card, name, month, or year fields is treated as "not supplied" and mapped to <code>LOW-VALUES</code> — a hard-coded UI convention that could silently clear a field if a user types <code>*</code> unintentionally.</li>
+<li><strong>State-driven branching via 88-levels on a single-byte flag</strong> (<code>CCUP-CHANGE-ACTION</code> with values <code>LOW-VALUES/SPACE</code>, <code>S</code>, <code>E</code>, <code>N</code>, <code>C</code>, <code>L</code>, <code>F</code>): the whole workflow (fetch/edit/confirm/commit/fail) hinges on this one field carried in the commarea across transactions — easy to misinterpret without the 88-level legend.</li>
+<li><strong>Change detection by full-record comparison</strong>: <code>1200-EDIT-MAP-INPUTS</code> treats the update as "no change" only if the <em>entire</em> new card-data group matches the old one case-insensitively; a single differing subfield forces full re-validation of name/status/month/year even if the user only meant to change one field.</li>
+<li><strong>Hard-coded literals</strong>: program name, transaction ID, mapset/map names, and target program names (<code>COCRDLIC</code>, <code>COMEN01C</code>, <code>COCRDSLC</code>) are all hard-coded in <code>WS-LITERALS</code> — any rename of these programs/transactions requires a code change here.</li>
+<li><strong>PF key gating logic is strict and silently overridden</strong>: any AID not matching the allowed list (Enter, PF3, PF5-with-pending-confirm, PF12-with-fetched-details) is forced to behave like Enter (<code>PFK-INVALID</code> → <code>SET CCARD-AID-ENTER TO TRUE</code>) rather than producing an explicit error — this could confuse users who press an unsupported key expecting feedback.</li>
+<li><strong>SYNCPOINT before XCTL on exit</strong>: the program explicitly commits work (<code>EXEC CICS SYNCPOINT</code>) before transferring control on PF3/completion — meaning any update must already be durably applied prior to this point (consistent with <code>9200-WRITE-PROCESSING</code> running earlier in the same transaction).</li>
+<li><strong>Abend handling</strong>: <code>ABEND-ROUTINE</code> is registered up front via <code>HANDLE ABEND</code>, and <code>2000-DECIDE-ACTION</code> explicitly performs <code>ABEND-ROUTINE</code> in at least one path — but the routine's actual behavior (message construction, <code>EXEC CICS ABEND</code>) is outside the given source excerpt.</li>
+<li><strong>Optimistic-concurrency style messages</strong> (<code>DATA-WAS-CHANGED-BEFORE-UPDATE</code>, <code>COULD-NOT-LOCK-FOR-UPDATE</code>, <code>LOCKED-BUT-UPDATE-FAILED</code>) suggest the update path checks for concurrent modification before committing, via <code>9300-CHECK-CHANGE-IN-REC</code>, but the actual locking/compare mechanism isn't visible in the supplied code.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>HANDLE ABEND</code>, <code>XCTL</code>, <code>RETURN</code>, <code>RECEIVE MAP</code>, <code>SEND MAP</code>, <code>READ</code>, <code>SEND</code>, <code>ABEND</code></p>
 <h2 id="copybooks">Copybooks</h2>

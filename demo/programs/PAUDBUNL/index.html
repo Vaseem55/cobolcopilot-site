@@ -2903,24 +2903,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    PAUDBUNL
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2937,80 +2919,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3044,69 +2952,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3125,6 +2970,109 @@
 <h1 id="paudbunl">PAUDBUNL</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/PAUDBUNL.CBL</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="paudbunl-ims-authorization-database-unload-program">PAUDBUNL — IMS Authorization Database Unload Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>PAUDBUNL ("IMSUNLOD") is a batch unload utility that extracts pending-authorization data from an IMS database and writes it out to two flat sequential files. It walks the IMS database hierarchically — reading each root <strong>Pending Authorization Summary</strong> segment and, for each one, all of its child <strong>Pending Authorization Detail</strong> segments — producing a full extract of the authorization data for downstream use (e.g., migration, reporting, or conversion to another data store). It is a straight read-and-unload program; it does not update or delete anything in the IMS database itself.</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>MAIN-PARA</strong> is the entry point (<code>ENTRY 'DLITCBL' USING PAUTBPCB</code>), consistent with a DL/I batch program invoked with an IMS PCB mask. It performs three steps in sequence:</li>
+<li><strong>1000-INITIALIZE</strong> — one-time setup.</li>
+<li><strong>2000-FIND-NEXT-AUTH-SUMMARY</strong>, repeated in a loop <strong>until <code>WS-END-OF-ROOT-SEG = 'Y'</code></strong> — the main extraction loop over root segments.</li>
+<li>
+<p><strong>4000-FILE-CLOSE</strong> — closes output files, then the program ends with <code>GOBACK</code>.</p>
+</li>
+<li>
+<p><strong>1000-INITIALIZE</strong>: Captures the current date/day (<code>ACCEPT ... FROM DATE/DAY</code>), displays a startup banner, then opens both output files (<code>OPFILE1</code>, <code>OPFILE2</code>). If either <code>OPEN</code> fails (file status not spaces or <code>'00'</code>), it displays an error and calls <strong>9999-ABEND</strong>, which sets <code>RETURN-CODE = 16</code> and terminates via <code>GOBACK</code>. Note: there is a commented-out <code>ACCEPT PRM-INFO FROM SYSIN</code>, meaning the parameter record (expiry days, checkpoint frequency, debug flag) defined in <code>PRM-INFO</code> is <strong>not actually being read</strong> — those working-storage fields are effectively unused/dead in the current code.</p>
+</li>
+<li>
+<p><strong>2000-FIND-NEXT-AUTH-SUMMARY</strong> (root segment retrieval):</p>
+</li>
+<li>Issues an IMS <code>CALL 'CBLTDLI' USING FUNC-GN, PAUTBPCB, PENDING-AUTH-SUMMARY, ROOT-UNQUAL-SSA</code> — a "Get Next" against the root segment type <code>PAUTSUM0</code>.</li>
+<li>If the PCB status is spaces (success): counts the read, moves the segment to <code>OPFIL1-REC</code>, initializes the key/detail fields for file 2, and moves <code>PA-ACCT-ID</code> into <code>ROOT-SEG-KEY</code>. <strong>Only if <code>PA-ACCT-ID</code> is numeric</strong> does it write the record to OPFILE1 and then loop through <strong>3000-FIND-NEXT-AUTH-DTL</strong> to pull all child detail segments for that root, until <code>WS-END-OF-CHILD-SEG = 'Y'</code>.</li>
+<li>If the PCB status is <code>'GB'</code> (IMS end-of-database), sets <code>END-OF-AUTHDB</code>/<code>WS-END-OF-ROOT-SEG = 'Y'</code>, ending the main loop.</li>
+<li>
+<p>Any other non-space, non-<code>'GB'</code> status is treated as an unexpected IMS error: it displays the status and the key feedback area (<code>PAUT-KEYFB</code>), then calls <strong>9999-ABEND</strong>.</p>
+</li>
+<li>
+<p><strong>3000-FIND-NEXT-AUTH-DTL</strong> (child segment retrieval):</p>
+</li>
+<li>Issues <code>CALL 'CBLTDLI' USING FUNC-GNP, PAUTBPCB, PENDING-AUTH-DETAILS, CHILD-UNQUAL-SSA</code> — a "Get Next within Parent" against child segment type <code>PAUTDTL1</code>.</li>
+<li>On success (status = spaces): counts the read and writes the detail segment to <code>OPFIL2-REC</code> (paired with the previously-set <code>ROOT-SEG-KEY</code>).</li>
+<li>On status <code>'GE'</code> (segment not found / no more children under this parent): sets <code>WS-END-OF-CHILD-SEG = 'Y'</code> and displays a diagnostic message, ending the inner loop for this parent.</li>
+<li>Any other status triggers a display of the error and key feedback area, then <strong>9999-ABEND</strong>.</li>
+<li>
+<p>Regardless of outcome, <code>PAUT-PCB-STATUS</code> is re-initialized at the end of the paragraph before returning.</p>
+</li>
+<li>
+<p><strong>4000-FILE-CLOSE</strong>: Closes both output files, checking/reporting (but not abending on) close errors.</p>
+</li>
+<li>
+<p><strong>9999-ABEND</strong>: Common error exit — displays a termination message, sets <code>RETURN-CODE = 16</code>, and does <code>GOBACK</code> (does not use CICS <code>ABEND</code>; this is a batch/DL-I program, no CICS commands are present).</p>
+</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PAUTBPCB</strong></td>
+<td>IMS PCB (linkage/copybook <code>PAUTBPCB</code>)</td>
+<td>Input — the DL/I PCB mask passed into the program; used on every <code>CBLTDLI</code> call to communicate with IMS and to check status (<code>PAUT-PCB-STATUS</code>) and key-feedback (<code>PAUT-KEYFB</code>) after each call.</td>
+</tr>
+<tr>
+<td><strong>IMS Database (via CBLTDLI)</strong></td>
+<td>IMS database, accessed via <code>FUNC-GN</code> / <code>FUNC-GNP</code> calls</td>
+<td>Input — source of the hierarchical data: root segment <code>PAUTSUM0</code> (Pending Authorization Summary, layout from copybook <code>CIPAUSMY</code>) and child segment <code>PAUTDTL1</code> (Pending Authorization Detail, layout from copybook <code>CIPAUDTY</code>).</td>
+</tr>
+<tr>
+<td><strong>OPFILE1 / DD OUTFIL1</strong></td>
+<td>Sequential output file, 100-byte record (<code>OPFIL1-REC</code>)</td>
+<td>Output — one record per root Pending-Authorization-Summary segment (only written when <code>PA-ACCT-ID</code> is numeric).</td>
+</tr>
+<tr>
+<td><strong>OPFILE2 / DD OUTFIL2</strong></td>
+<td>Sequential output file, record = <code>ROOT-SEG-KEY</code> (S9(11) COMP-3) + <code>CHILD-SEG-REC</code> (X(200))</td>
+<td>Output — one record per Pending-Authorization-Detail (child) segment, prefixed with the parent's account ID as a linking key.</td>
+</tr>
+<tr>
+<td><strong>CIPAUDTY / CIPAUSMY</strong></td>
+<td>Copybooks</td>
+<td>Define the IMS segment layouts for detail and summary records respectively.</td>
+</tr>
+<tr>
+<td><strong>IMSFUNCS</strong></td>
+<td>Copybook</td>
+<td>Supplies DL/I function code constants (<code>FUNC-GN</code>, <code>FUNC-GNP</code>, etc.) used in the <code>CBLTDLI</code> calls.</td>
+</tr>
+<tr>
+<td><strong>PAUTBPCB</strong></td>
+<td>Copybook</td>
+<td>Defines the PCB mask layout (<code>PAUT-PCB-STATUS</code>, <code>PAUT-KEYFB</code>, <code>PAUT-SEG-LEVEL</code>, <code>PAUT-SEG-NAME</code>, etc.) received in the Linkage Section.</td>
+</tr>
+<tr>
+<td><strong>CBLTDLI</strong></td>
+<td>External call</td>
+<td>The standard IMS DL/I call interface used for all database access (Get Next and Get Next-in-Parent).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No SQL/DB2 or CICS usage</strong> — this is a pure batch DL/I (IMS) program; the parser found no SQL tables or CICS commands, consistent with the source.</li>
+<li><strong>Parameter input is disabled</strong>: the <code>ACCEPT PRM-INFO FROM SYSIN</code> line is commented out, so <code>P-EXPIRY-DAYS</code>, <code>P-CHKP-FREQ</code>, <code>P-CHKP-DIS-FREQ</code>, and <code>P-DEBUG-FLAG</code> are never populated from input — related working-storage fields (<code>WS-EXPIRY-DAYS</code>, <code>WS-DAY-DIFF</code>, checkpoint counters, <code>WS-NO-CHKP</code>) appear declared but not actively driven by parameters in this code path. Any checkpoint/restart logic implied by field names (<code>WK-CHKPT-ID</code>, <code>WS-NO-CHKP</code>) is <strong>not implemented</strong> in the visible PROCEDURE DIVISION — there is no <code>CHKP</code>/checkpoint call present.</li>
+<li><strong>Silent record-skipping</strong>: root summary segments are only written to OPFILE1 (and their children processed at all) <strong>if <code>PA-ACCT-ID IS NUMERIC</code></strong>. Non-numeric account IDs are silently skipped — no error, count, or log entry — which could cause data loss without visibility if the source contains bad/blank account IDs.</li>
+<li><strong>Inconsistent error handling severity</strong>: <code>9999-ABEND</code> is called (hard stop, return code 16) for OPEN failures and unexpected IMS statuses on both GN and GNP calls, but <strong>CLOSE failures in 4000-FILE-CLOSE are only displayed, not abended</strong> — the program will still return successfully (return code 0) even if file close fails.</li>
+<li><strong>Hard-coded values</strong>: segment names <code>PAUTSUM0</code> and <code>PAUTDTL1</code> are hard-coded into the unqualified SSAs; the program name <code>IMSUNLOD</code> is hard-coded in <code>WS-PGMNAME</code> and messages; abend return code is hard-coded to <code>16</code>.</li>
+<li><strong>Heavy use of commented-out debug DISPLAY statements</strong> throughout paragraphs 2000 and 3000 — these appear to be leftover diagnostic code (segment level, PCB status, segment name dumps) disabled but not removed, suggesting the program was debugged in place and the instrumentation was never cleaned up or made conditional on <code>P-DEBUG-FLAG</code> (which itself is never set, since SYSIN read is disabled).</li>
+<li><strong>Status-check pattern relies on exact literal matching</strong> (<code>'GB'</code>, <code>'GE'</code>, spaces) rather than the 88-level condition names already defined for these values (e.g., <code>END-OF-DB</code>, <code>SEGMENT-NOT-FOUND</code>) — the 88-levels exist in <code>WS-IMS-VARIABLES</code>/status field definitions but the procedure code re-tests <code>PAUT-PCB-STATUS</code> directly with literals, which is a minor maintainability inconsistency (two parallel status representations).</li>
+<li><strong>No <code>executed_by_job_steps</code> were identified</strong> by the parser, so the JCL step(s) that invoke this program (and thus the actual DD-to-dataset mappings for OUTFIL1/OUTFIL2) are not available from the extracted facts — this documentation cannot confirm downstream consumers of the two output files.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

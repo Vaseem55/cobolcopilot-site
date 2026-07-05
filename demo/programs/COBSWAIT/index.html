@@ -2256,6 +2256,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs &amp; outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#things-to-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Things to know
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#calls" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3020,6 +3064,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs &amp; outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#things-to-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Things to know
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#calls" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3061,6 +3149,54 @@
 <h1 id="cobswait">COBSWAIT</h1>
 <p>Source: <code>cbl/COBSWAIT.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h2 id="purpose">Purpose</h2>
+<p>COBSWAIT is a small batch utility program used in the CardDemo application to pause (delay) job execution for a configurable amount of time. It reads a wait duration (expressed in centiseconds) as input and delegates the actual wait/sleep logic to an external routine, <code>MVSWAIT</code>. It is run as the <code>WAITSTEP.WAIT</code> step of a batch job, presumably to introduce timing delays between job steps (e.g., for sequencing, throttling, or simulating processing time).</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The program has no named paragraphs — all logic sits directly in the <code>PROCEDURE DIVISION</code>:</p>
+<ol>
+<li><strong>Read input</strong> — <code>ACCEPT PARM-VALUE FROM SYSIN</code> reads an 8-character value from the <code>SYSIN</code> input stream (typically supplied via JCL as a parameter card).</li>
+<li><strong>Convert value</strong> — <code>MOVE PARM-VALUE TO MVSWAIT-TIME</code> moves the value into a <code>PIC 9(8) COMP</code> numeric field, converting the alphanumeric input into a binary number representing centiseconds.</li>
+<li><strong>Perform wait</strong> — <code>CALL 'MVSWAIT' USING MVSWAIT-TIME</code> invokes an external subprogram (not part of this source file) that performs the actual wait based on the numeric value passed.</li>
+<li><strong>Terminate</strong> — <code>STOP RUN</code> ends the program immediately after the call returns.</li>
+</ol>
+<p>There is no looping, conditional logic, or error handling — it's a straight-line, three-statement program.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SYSIN</code></td>
+<td>Input stream (not a file per parser, but a DD/input source)</td>
+<td>Supplies the wait duration as an 8-character text value, expected to represent centiseconds.</td>
+</tr>
+<tr>
+<td><code>MVSWAIT</code></td>
+<td>External call (program)</td>
+<td>Performs the actual wait/delay based on the numeric value passed in <code>MVSWAIT-TIME</code>. Its implementation is outside this source file and not verified here.</td>
+</tr>
+<tr>
+<td><code>WAITSTEP.WAIT</code></td>
+<td>Job step</td>
+<td>The batch job step that executes this program.</td>
+</tr>
+</tbody>
+</table>
+<p>No files, copybooks, SQL tables, or CICS commands are used — this is confirmed by the parser facts (<code>files: []</code>, <code>copybooks: []</code>, <code>sql_tables: []</code>, <code>cics_commands: []</code>).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No input validation.</strong> The value from <code>SYSIN</code> is moved directly into a numeric <code>COMP</code> field with no checks for non-numeric or malformed data. If <code>PARM-VALUE</code> contains non-numeric characters, this <code>MOVE</code> could produce undefined/garbage results or abend at runtime, since COBOL numeric-edited moves from alphanumeric fields don't validate content.</li>
+<li><strong>Fixed-size parameter.</strong> <code>PARM-VALUE</code> is <code>PIC X(8)</code>, and <code>MVSWAIT-TIME</code> is <code>PIC 9(8) COMP</code> — the wait value must fit within 8 digits (centiseconds), limiting the maximum wait duration.</li>
+<li><strong>No error handling.</strong> There's no check on the success/failure of the <code>CALL 'MVSWAIT'</code>, nor any return code handling. If <code>MVSWAIT</code> fails or isn't found at runtime, behavior depends entirely on the runtime environment's abend handling.</li>
+<li><strong>External dependency.</strong> The actual wait behavior lives in <code>MVSWAIT</code>, which is not part of this source and not verified by the parser — its implementation, units, and behavior can't be confirmed from this file alone (the comment states the parameter is in centiseconds, but this is only documented, not enforced in code).</li>
+<li><strong>No paragraphs/structure.</strong> The parser found zero named paragraphs, consistent with the flat, unstructured <code>PROCEDURE DIVISION</code> shown in the source — there's nothing to decompose or trace beyond the three statements.</li>
+<li><strong>Purely a utility/timing mechanism</strong> — it has no business logic, file I/O, or database interaction, aligning with its role as a generic "wait" step in a job stream.</li>
+</ul>
 <h2 id="calls">Calls</h2>
 <p><code>MVSWAIT</code></p>
 <h2 id="executed-by">Executed by</h2>

@@ -1701,24 +1701,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBACT01C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1735,91 +1717,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,83 @@
 <h1 id="cbact01c">CBACT01C</h1>
 <p>Source: <code>cbl/CBACT01C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbact01c-account-file-extracttransform-program">CBACT01C — Account File Extract/Transform Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBACT01C is a batch COBOL program from the CardDemo application that reads account master records from an indexed (VSAM KSDS) file and republishes them into three different output file formats: a fixed-length sequential file, a sequential file containing an array/table structure, and a variable-length (RECFM V) file. It appears to exist primarily to demonstrate/test different COBOL file organizations and record layouts (fixed, array/OCCURS, and variable-length records) derived from the same input data, rather than to perform a distinct business calculation. It is executed as job step <code>READACCT.STEP05</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>The main <code>PROCEDURE DIVISION</code> logic:</p>
+<ol>
+<li>Opens all four files in sequence via <code>0000-ACCTFILE-OPEN</code>, <code>2000-OUTFILE-OPEN</code>, <code>3000-ARRFILE-OPEN</code>, and <code>4000-VBRFILE-OPEN</code>.</li>
+<li>Loops <code>PERFORM UNTIL END-OF-FILE = 'Y'</code>, calling <code>1000-ACCTFILE-GET-NEXT</code> to read one account record at a time and displaying it (<code>DISPLAY ACCOUNT-RECORD</code>) until end-of-file.</li>
+<li>For each account record successfully read, <code>1000-ACCTFILE-GET-NEXT</code> drives the full transform/write sequence:</li>
+<li><code>1100-DISPLAY-ACCT-RECORD</code> — dumps the input account fields to the job log for auditing/debugging.</li>
+<li><code>1300-POPUL-ACCT-RECORD</code> — maps input fields to the <code>OUT-ACCT-REC</code> layout, calls the external date-formatting routine <code>COBDATFT</code> (via the <code>CODATECN</code> copybook interface) to reformat the reissue date, and applies a hard-coded default (<code>2525.00</code>) to the cycle-debit amount when it is zero.</li>
+<li><code>1350-WRITE-ACCT-RECORD</code> — writes the record to <code>OUT-FILE</code>.</li>
+<li><code>1400-POPUL-ARRAY-RECORD</code> — builds an <code>ARR-ARRAY-REC</code> containing a 5-occurrence table of balance/debit pairs, populated with a mix of real account data and hard-coded test values.</li>
+<li><code>1450-WRITE-ARRY-RECORD</code> — writes the array record to <code>ARRY-FILE</code>.</li>
+<li><code>1500-POPUL-VBRC-RECORD</code> — builds two variable-length record layouts (<code>VBRC-REC1</code>, <code>VBRC-REC2</code>) from the account data and displays them.</li>
+<li><code>1550-WRITE-VB1-RECORD</code> and <code>1575-WRITE-VB2-RECORD</code> — each moves its record into the <code>VBR-REC</code> buffer at a fixed length (12 and 39 bytes respectively) and writes it to <code>VBRC-FILE</code>.</li>
+<li>When the read in <code>1000-ACCTFILE-GET-NEXT</code> returns file status <code>10</code> (end of file), <code>END-OF-FILE</code> is set to <code>'Y'</code> and the loop exits.</li>
+<li><code>9000-ACCTFILE-CLOSE</code> closes the account file, and the program displays start/end banner messages and terminates via <code>GOBACK</code>.</li>
+</ol>
+<p>Every I/O paragraph (open, write, close, read) checks the file status and, on any unexpected status, calls <code>9910-DISPLAY-IO-STATUS</code> to format/log the status code and then <code>9999-ABEND-PROGRAM</code> to abnormally terminate the job via <code>CALL 'CEE3ABD'</code>.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / DD</th>
+<th>Direction</th>
+<th>Organization</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ACCTFILE-FILE</code> (DD <code>ACCTFILE</code>)</td>
+<td>Input</td>
+<td>Indexed (VSAM KSDS), sequential access, keyed on <code>FD-ACCT-ID</code></td>
+<td>Source account master records (layout defined in copybook <code>CVACT01Y</code>, referenced as <code>ACCOUNT-RECORD</code>)</td>
+</tr>
+<tr>
+<td><code>OUT-FILE</code> (DD <code>OUTFILE</code>)</td>
+<td>Output</td>
+<td>Sequential, fixed-length</td>
+<td>Flattened copy of account data (<code>OUT-ACCT-REC</code>) including a reformatted reissue date</td>
+</tr>
+<tr>
+<td><code>ARRY-FILE</code> (DD <code>ARRYFILE</code>)</td>
+<td>Output</td>
+<td>Sequential, fixed-length</td>
+<td>Account ID plus a 5-entry OCCURS table of balance/debit values (<code>ARR-ARRAY-REC</code>), partly real data and partly hard-coded test values</td>
+</tr>
+<tr>
+<td><code>VBRC-FILE</code> (DD <code>VBRCFILE</code>)</td>
+<td>Output</td>
+<td>Sequential, variable-length (RECFM V, 10–80 bytes, length driven by <code>WS-RECD-LEN</code>)</td>
+<td>Two record types per account: a short "VB1" record (12 bytes: ID + status) and a longer "VB2" record (39 bytes: ID, balance, credit limit, reissue year)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Copybooks used:</strong>
+- <code>CVACT01Y</code> — defines the account record layout (<code>ACCOUNT-RECORD</code> / <code>ACCT-*</code> fields) used for both the input file and working storage.
+- <code>CODATECN</code> — defines the interface record (<code>CODATECN-REC</code>) passed to the external date-conversion call.</p>
+<p><strong>External calls:</strong>
+- <code>COBDATFT</code> — an external (likely Assembler) date-formatting routine invoked to convert the account reissue date into an output format.
+- <code>CEE3ABD</code> — LE abend service, invoked to terminate the program abnormally on unrecoverable I/O errors.</p>
+<p>No CICS commands or SQL tables are used — this is a straight batch, file-to-file program (no DB2 access per parser facts).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded / test-like values:</strong> Several fields are populated with fixed literals rather than derived from input, which look like placeholder or test data rather than genuine business logic:</li>
+<li><code>1300-POPUL-ACCT-RECORD</code>: if <code>ACCT-CURR-CYC-DEBIT</code> is zero, it is overwritten with <code>2525.00</code>.</li>
+<li><code>1400-POPUL-ARRAY-RECORD</code>: <code>ARR-ACCT-CURR-CYC-DEBIT(1)</code> = <code>1005.00</code>, <code>(2)</code> = <code>1525.00</code>; <code>ARR-ACCT-CURR-BAL(3)</code> = <code>-1025.00</code> and <code>ARR-ACCT-CURR-CYC-DEBIT(3)</code> = <code>-2500.00</code> — none of these come from the account record. Table entries 4 and 5 are never populated (left as initialized/zero from <code>INITIALIZE ARR-ARRAY-REC</code>).</li>
+<li>These hard-coded values suggest this program may be a sample/demo or a test harness rather than production logic — worth confirming with the business owner before relying on it.</li>
+<li><strong>Error handling pattern:</strong> Every file operation follows the same idiom — set <code>APPL-RESULT</code> to a sentinel (8), attempt the operation, check status, and abend via <code>9999-ABEND-PROGRAM</code>/<code>CEE3ABD</code> on unexpected status codes (anything other than <code>'00'</code>, or <code>'10'</code> for reads at EOF). This is consistent but terminates the entire job on any I/O anomaly (abend code 999), with no partial-recovery or restart logic evident.</li>
+<li><strong>File status <code>10</code> treated as EOF only in <code>1000-ACCTFILE-GET-NEXT</code></strong>; on writes, status <code>10</code> is tolerated without explanation (treated as non-error alongside <code>'00'</code>), which is unusual — this should be verified, as <code>'10'</code> normally denotes end-of-file, not a valid write status.</li>
+<li><strong>Variable-length record construction:</strong> In <code>1550-WRITE-VB1-RECORD</code> and <code>1575-WRITE-VB2-RECORD</code>, the record length is manually set (12 and 39 bytes) and the data is copied into a fixed 80-byte buffer (<code>VBR-REC</code>) via reference modification (<code>VBR-REC(1:WS-RECD-LEN)</code>). Any layout change to <code>VBRC-REC1</code>/<code>VBRC-REC2</code> requires the corresponding length literal to be updated manually — a fragile, easy-to-break coupling.</li>
+<li><strong>Date conversion dependency:</strong> The reissue date transformation relies entirely on the external <code>COBDATFT</code> routine and the <code>CODATECN</code> copybook contract; the actual conversion logic is opaque to this program and not verifiable from this source alone.</li>
+<li><strong>Verbose diagnostics:</strong> The program displays every account record’s full contents (<code>1100-DISPLAY-ACCT-RECORD</code>) and both VBRC records for every input row — this could produce very large job logs for large input files and should be considered if run against production volumes.</li>
+<li><strong>No dynamic record counts:</strong> The array table is fixed at 5 occurrences (<code>OCCURS 5 TIMES</code>) with only 3 populated — the purpose of the unused slots is unclear from the code and should be confirmed with whoever authored the design.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

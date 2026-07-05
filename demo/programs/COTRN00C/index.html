@@ -2569,24 +2569,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COTRN00C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2603,69 +2585,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,107 @@
 <h1 id="cotrn00c">COTRN00C</h1>
 <p>Source: <code>cbl/COTRN00C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cotrn00c-transaction-list-screen-handler">COTRN00C — Transaction List Screen Handler</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COTRN00C is a CICS transaction (<code>CT00</code>) that implements the "List Transactions" screen in the CardDemo application. It lets a user browse the TRANSACT file page-by-page (10 transactions per screen), select a transaction to drill into, and navigate forward/backward through the transaction list using PF7/PF8. It is a screen-driven, pseudo-conversational CICS program — it does not perform any batch or SQL processing (no SQL tables are involved; all data access is via CICS file control against a VSAM-style dataset).</p>
+<h2 id="how-it-works">How it works</h2>
+<p><strong>MAIN-PARA</strong> (line 95) is the entry point on every invocation of transaction CT00:</p>
+<ul>
+<li>If <code>EIBCALEN = 0</code> (first-ever call, no commarea), it routes back to the sign-on screen <strong>COSGN00C</strong> via <code>RETURN-TO-PREV-SCREEN</code>.</li>
+<li>Otherwise it copies the incoming commarea into <code>CARDDEMO-COMMAREA</code>.</li>
+<li>On first entry into this program (<code>NOT CDEMO-PGM-REENTER</code>), it initializes the output map, calls <code>PROCESS-ENTER-KEY</code> to load the first page, and sends the screen via <code>SEND-TRNLST-SCREEN</code>.</li>
+<li>On subsequent entries (user pressed a key), it calls <code>RECEIVE-TRNLST-SCREEN</code> to read the map, then dispatches based on <code>EIBAID</code>:<ul>
+<li><strong>ENTER</strong> → <code>PROCESS-ENTER-KEY</code> (validate/select a transaction or filter by Tran ID, reload page 1 forward)</li>
+<li><strong>PF3</strong> → <code>RETURN-TO-PREV-SCREEN</code> (back to <strong>COMEN01C</strong>)</li>
+<li><strong>PF7</strong> → <code>PROCESS-PF7-KEY</code> (page backward)</li>
+<li><strong>PF8</strong> → <code>PROCESS-PF8-KEY</code> (page forward)</li>
+<li><strong>any other key</strong> → error message "Invalid Key Pressed" and redisplay</li>
+</ul>
+</li>
+</ul>
+<p>The program ends every path with <code>EXEC CICS RETURN TRANSID('CT00') COMMAREA(...)</code>, making it pseudo-conversational (state persists in the commarea between calls).</p>
+<p><strong>PROCESS-ENTER-KEY</strong> (146) scans the 10 selection fields (<code>SEL0001I</code>–<code>SEL0010I</code>) to see if the user marked a row with <code>S</code>/<code>s</code>. If so, it XCTLs to <strong>COTRN01C</strong> (transaction detail) passing the selected Tran ID in the commarea. If an invalid selection code was entered, it sets an error message. It also validates that the typed Tran ID filter is numeric (rejecting non-numeric input with an error and re-send). It then resets the page number to 0 and calls <code>PROCESS-PAGE-FORWARD</code> to (re)load the first page of results.</p>
+<p><strong>PROCESS-PF7-KEY</strong> (234) and <strong>PROCESS-PF8-KEY</strong> (257) implement backward/forward paging:
+- PF7 blocks the user if already on page 1 ("You are already at the top of the page..."), otherwise calls <code>PROCESS-PAGE-BACKWARD</code>.
+- PF8 blocks the user if <code>NEXT-PAGE-NO</code> was set ("You are already at the bottom of the page..."), otherwise calls <code>PROCESS-PAGE-FORWARD</code>.</p>
+<p><strong>PROCESS-PAGE-FORWARD</strong> (279) and <strong>PROCESS-PAGE-BACKWARD</strong> (333) both:
+1. <code>STARTBR-TRANSACT-FILE</code> — start a browse on TRANSACT keyed on <code>TRAN-ID</code>.
+2. Clear the 10 display rows via <code>INITIALIZE-TRAN-DATA</code>.
+3. Loop <code>READNEXT-TRANSACT-FILE</code> (or <code>READPREV-TRANSACT-FILE</code>) up to 10 times, calling <code>POPULATE-TRAN-DATA</code> to format each record into the output map.
+4. Peek one record further to determine whether there's a next/previous page (sets <code>NEXT-PAGE-YES</code>/<code>NEXT-PAGE-NO</code> and adjusts <code>CDEMO-CT00-PAGE-NUM</code>).
+5. <code>ENDBR-TRANSACT-FILE</code> to close the browse.
+6. <code>SEND-TRNLST-SCREEN</code> to redisplay.</p>
+<p><strong>POPULATE-TRAN-DATA</strong> (381) formats one TRANSACT record (amount, description, converted date) into the row indicated by <code>WS-IDX</code> (1–10), and also stashes the first and last Tran IDs of the page (<code>CDEMO-CT00-TRNID-FIRST</code>/<code>-LAST</code>) for use in subsequent paging.</p>
+<p><strong>SEND-TRNLST-SCREEN</strong> (527) calls <code>POPULATE-HEADER-INFO</code> (title, program name, current date/time) then does a CICS <code>SEND MAP</code> — with <code>ERASE</code> unless <code>SEND-ERASE-NO</code> was explicitly set (used when just showing a "top/bottom of page" message without redrawing the whole map).</p>
+<p><strong>RECEIVE-TRNLST-SCREEN</strong> (554) reads the map input into <code>COTRN0AI</code> via CICS <code>RECEIVE</code>.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TRANSACT</strong> (<code>WS-TRANSACT-FILE</code>)</td>
+<td>CICS dataset (VSAM, accessed via STARTBR/READNEXT/READPREV/ENDBR)</td>
+<td>Source of transaction records; browsed by <code>TRAN-ID</code> key to build each page of up to 10 rows</td>
+</tr>
+<tr>
+<td><strong>DFHCOMMAREA</strong></td>
+<td>CICS commarea (linkage section)</td>
+<td>Carries <code>CARDDEMO-COMMAREA</code> (program-to-program) state between calls: source/destination program, tran ID, page context, first/last Tran ID on current page, next-page flag</td>
+</tr>
+<tr>
+<td><strong>COTRN0A</strong> map / <strong>COTRN00</strong> mapset</td>
+<td>BMS screen</td>
+<td>Input/output screen: Tran ID filter, selection flags (SEL0001–10), 10 rows of Tran ID/date/description/amount, page number, error message</td>
+</tr>
+<tr>
+<td>Copybook <strong>COCOM01Y</strong></td>
+<td>Working storage</td>
+<td>Defines <code>CARDDEMO-COMMAREA</code> and common CardDemo flags/fields</td>
+</tr>
+<tr>
+<td>Copybook <strong>COTRN00</strong></td>
+<td>Working storage</td>
+<td>Screen (map) layout <code>COTRN0AI</code>/<code>COTRN0AO</code></td>
+</tr>
+<tr>
+<td>Copybook <strong>CVTRA05Y</strong></td>
+<td>Working storage</td>
+<td><code>TRAN-RECORD</code>/<code>TRAN-ID</code>/<code>TRAN-AMT</code>/<code>TRAN-DESC</code>/<code>TRAN-ORIG-TS</code> layout for TRANSACT records</td>
+</tr>
+<tr>
+<td>Copybooks <strong>COTTL01Y</strong>, <strong>CSDAT01Y</strong>, <strong>CSMSG01Y</strong></td>
+<td>Working storage</td>
+<td>Titles, date/time work fields, standard messages (e.g., <code>CCDA-MSG-INVALID-KEY</code>)</td>
+</tr>
+<tr>
+<td>Copybooks <strong>DFHAID</strong>, <strong>DFHBMSCA</strong></td>
+<td>Working storage</td>
+<td>CICS AID key constants (DFHENTER, DFHPF7, etc.) and BMS attribute constants</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Outbound program transfers (XCTL):</strong>
+- <strong>COSGN00C</strong> — when no commarea present, or as generic fallback in <code>RETURN-TO-PREV-SCREEN</code>
+- <strong>COMEN01C</strong> — on PF3 (return to previous menu)
+- <strong>COTRN01C</strong> — on selecting a transaction (Tran ID passed via commarea) for detail view</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No SQL/DB2 usage</strong> — this program relies entirely on CICS file control (VSAM-style) against the TRANSACT dataset; there are no SQL tables in scope.</li>
+<li><strong>Hard-coded literals</strong>: transaction ID <code>'CT00'</code>, program name <code>'COTRN00C'</code>, dataset name <code>'TRANSACT'</code>, and default fallback program <code>'COSGN00C'</code> are all hard-coded in working storage rather than configured externally.</li>
+<li><strong>Fixed page size of 10</strong> — the screen and paging logic are hard-wired to exactly 10 rows/selection fields (<code>SEL0001I</code>…<code>SEL0010I</code>, <code>TRNID01I</code>…<code>TRNID10I</code>, etc.), driven by repetitive <code>EVALUATE WS-IDX</code> blocks in both <code>POPULATE-TRAN-DATA</code> and <code>INITIALIZE-TRAN-DATA</code> rather than a table/array — any change to page size requires touching many places.</li>
+<li><strong>Error handling is message-based, not exception-based</strong>: CICS RESP/RESP2 codes are checked after every STARTBR/READNEXT/READPREV; on unexpected errors the code just sets <code>WS-ERR-FLG</code>, displays a generic "Unable to lookup transaction..." message, and calls <code>SEND-TRNLST-SCREEN</code> — there's no distinct recovery path, and unexpected RESP codes are only logged via <code>DISPLAY</code> (visible in CICS transient log/console, not to the end user beyond the generic message).</li>
+<li><strong>Selection validation is minimal</strong>: only <code>'S'</code>/<code>'s'</code> is accepted as a valid selection flag; anything else in a non-blank selection field produces "Invalid selection. Valid value is S" but some cleanup code is commented out (<code>*SET TRANSACT-EOF...</code>, <code>*PERFORM SEND-TRNLST-SCREEN</code>), suggesting incomplete or historically modified error handling.</li>
+<li><strong>SEND-ERASE flag toggling</strong>: <code>SEND-ERASE-NO</code> is used to suppress the <code>ERASE</code> option on the CICS SEND MAP when just showing "top of page"/"bottom of page" informational messages — if this flag isn't properly reset elsewhere, stale screen content could remain visible; worth confirming reset logic covers all paths.</li>
+<li><strong>Numeric validation only applies to the Tran ID filter field</strong>, not to selection flags or other input; non-numeric Tran ID triggers a re-send with a specific error message and cursor positioning (<code>TRNIDINL = -1</code>).</li>
+<li><strong>Pseudo-conversational design</strong>: state (current page number, first/last Tran ID on page, next-page flag) is carried entirely in the commarea between CICS RETURNs — if the commarea is lost or corrupted between calls, paging state may be incorrect.</li>
+<li><strong>Date conversion</strong>: <code>POPULATE-TRAN-DATA</code> converts <code>TRAN-ORIG-TS</code> into a <code>MM/DD/YY</code>-style display date via intermediate <code>WS-TIMESTAMP</code>/<code>WS-CURDATE-*</code> fields — the exact source layout of <code>TRAN-ORIG-TS</code> is defined in copybook <code>CVTRA05Y</code> (not shown here), so field-level meaning should be verified against that copybook.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>STARTBR</code>, <code>READNEXT</code>, <code>READPREV</code>, <code>ENDBR</code></p>
 <h2 id="copybooks">Copybooks</h2>

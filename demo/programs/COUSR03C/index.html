@@ -2793,24 +2793,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COUSR03C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2827,69 +2809,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,73 @@
 <h1 id="cousr03c">COUSR03C</h1>
 <p>Source: <code>cbl/COUSR03C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cousr03c-delete-user-carddemo">COUSR03C — Delete User (CardDemo)</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This CICS program provides the "Delete User" function in the CardDemo administrative subsystem. It lets an administrator look up a user by User ID from the <code>USRSEC</code> file, review that user's details (first name, last name, user type) on screen, and confirm deletion of the user record. It is a screen-driven (BMS map <code>COUSR3A</code>/<code>COUSR03</code>) transaction identified by transaction ID <code>CU03</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<ul>
+<li><strong>MAIN-PARA</strong> is the entry point and controls all flow based on whether the program is being entered fresh or re-entered (via <code>EIBCALEN</code> and <code>CDEMO-PGM-REENTER</code>):</li>
+<li>On first entry with no commarea (<code>EIBCALEN = 0</code>), it routes back to the sign-on program <code>COSGN00C</code> via <code>RETURN-TO-PREV-SCREEN</code>.</li>
+<li>On first entry with a commarea, it initializes the screen (map fields set to <code>LOW-VALUES</code>), and if a user ID was already selected (<code>CDEMO-CU03-USR-SELECTED</code>), it pre-loads that user's data by calling <code>PROCESS-ENTER-KEY</code>, then sends the screen via <code>SEND-USRDEL-SCREEN</code>.</li>
+<li>On subsequent entries (re-enter), it receives screen input (<code>RECEIVE-USRDEL-SCREEN</code>) and dispatches based on the key pressed (<code>EIBAID</code>):<ul>
+<li><strong>Enter</strong> → <code>PROCESS-ENTER-KEY</code> (look up the user)</li>
+<li><strong>PF3</strong> → <code>RETURN-TO-PREV-SCREEN</code> (back to calling program, or <code>COADM01C</code> if none recorded)</li>
+<li><strong>PF4</strong> → <code>CLEAR-CURRENT-SCREEN</code> (reset the screen)</li>
+<li><strong>PF5</strong> → <code>DELETE-USER-INFO</code> (perform the actual delete)</li>
+<li><strong>PF12</strong> → <code>RETURN-TO-PREV-SCREEN</code> to <code>COADM01C</code></li>
+<li>Any other key → error message "invalid key" and the screen is re-sent</li>
+</ul>
+</li>
+<li><strong>PROCESS-ENTER-KEY</strong> validates that a User ID was entered, then calls <strong>READ-USER-SEC-FILE</strong> to fetch the record and populates the name/type fields for display.</li>
+<li><strong>DELETE-USER-INFO</strong> validates the User ID, re-reads the record (<strong>READ-USER-SEC-FILE</strong>), and then calls <strong>DELETE-USER-SEC-FILE</strong> to remove it.</li>
+<li><strong>READ-USER-SEC-FILE</strong> issues a CICS <code>READ ... UPDATE</code> against the <code>USRSEC</code> file and branches on the response code (<code>NORMAL</code>, <code>NOTFND</code>, <code>OTHER</code>), each path setting a message and re-sending the screen.</li>
+<li><strong>DELETE-USER-SEC-FILE</strong> issues the CICS <code>DELETE</code> against the same dataset (relying on the prior <code>READ ... UPDATE</code> to hold the record for delete), then handles <code>NORMAL</code> (success message + clears fields), <code>NOTFND</code>, and <code>OTHER</code> responses.</li>
+<li><strong>SEND-USRDEL-SCREEN</strong> always calls <strong>POPULATE-HEADER-INFO</strong> (titles, date/time, transaction/program name) before sending the BMS map.</li>
+<li><strong>CLEAR-CURRENT-SCREEN</strong> and <strong>INITIALIZE-ALL-FIELDS</strong> reset the input fields and message.</li>
+<li><strong>RETURN-TO-PREV-SCREEN</strong> performs a CICS <code>XCTL</code> to the target program (defaulting to <code>COSGN00C</code> if none is set), passing along the commarea and recording this program/transaction as the "from" context.</li>
+</ul>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USRSEC</code> (via <code>WS-USRSEC-FILE</code>)</td>
+<td>CICS file/dataset</td>
+<td>Read (with <code>UPDATE</code> option) and deleted in <code>READ-USER-SEC-FILE</code> / <code>DELETE-USER-SEC-FILE</code>. Keyed by <code>SEC-USR-ID</code>. No SQL tables are used — this is a CICS file, not DB2 (confirmed by empty <code>sql_tables</code> in parsed facts).</td>
+</tr>
+<tr>
+<td><code>COUSR3A</code> map / <code>COUSR03</code> mapset</td>
+<td>BMS screen</td>
+<td>Sent (<code>SEND-USRDEL-SCREEN</code>) and received (<code>RECEIVE-USRDEL-SCREEN</code>) for all user interaction — displays User ID, first/last name, user type, and error messages.</td>
+</tr>
+<tr>
+<td><code>DFHCOMMAREA</code> (LINKAGE SECTION)</td>
+<td>CICS commarea</td>
+<td>Carries <code>CARDDEMO-COMMAREA</code> context between programs (from/to program, transaction ID, reenter flag, selected user ID) across <code>XCTL</code> and <code>RETURN</code>.</td>
+</tr>
+<tr>
+<td>Copybooks: <code>COCOM01Y</code>, <code>CSUSR01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>COTTL01Y</code>, <code>COUSR03</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Data structures</td>
+<td>Provide commarea layout, security/user record layout (<code>SEC-USER-DATA</code>/<code>SEC-USR-ID</code>), date/time formatting fields, standard messages/titles, the map's I/O layout, and CICS AID/attribute constants. No calls to other programs are shown in the parsed facts other than implicit <code>XCTL</code> targets (<code>COSGN00C</code>, <code>COADM01C</code>), which are dynamic (moved into <code>CDEMO-TO-PROGRAM</code>), so they are not captured as static <code>calls</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No SQL involved</strong> — despite being part of a "CardDemo" system, this program interacts with a CICS VSAM-style file (<code>USRSEC</code>) via <code>EXEC CICS READ/DELETE</code>, not DB2 SQL. The parser's empty <code>sql_tables</code> list confirms this.</li>
+<li><strong>Hard-coded values</strong>: transaction ID <code>CU03</code>, program name <code>COUSR03C</code>, file name <code>USRSEC</code>, and fallback target programs <code>COSGN00C</code> / <code>COADM01C</code> are all hard-coded literals in working storage or inline MOVE statements.</li>
+<li><strong>Read-before-delete pattern</strong>: <code>DELETE-USER-SEC-FILE</code> does not specify a <code>RIDFLD</code>/key on the <code>EXEC CICS DELETE</code> — it relies on the preceding <code>READ ... UPDATE</code> in <code>READ-USER-SEC-FILE</code> to have positioned/locked the record. If the delete path is ever reached without a preceding successful <code>UPDATE</code>-mode read, the delete would likely fail; the two calls are tightly coupled and this coupling is not enforced structurally, only by the calling sequence (<code>DELETE-USER-INFO</code> performs <code>READ-USER-SEC-FILE</code> immediately before <code>DELETE-USER-SEC-FILE</code>).</li>
+<li><strong>Error handling</strong> is done via response code (<code>RESP</code>/<code>RESP2</code>) checks after each CICS call, with three-way branching (<code>NORMAL</code> / <code>NOTFND</code> / <code>OTHER</code>) that sets <code>WS-ERR-FLG</code>, builds a message into <code>WS-MESSAGE</code>, and re-sends the screen. Non-<code>NORMAL</code>/<code>NOTFND</code> cases (<code>OTHER</code>) are logged via <code>DISPLAY</code> (likely to a CICS log/JES output) with resp/reason codes but otherwise handled the same generic way ("Unable to lookup/Update User...") — the actual underlying cause is not surfaced to the end user.</li>
+<li><strong>No confirmation step visible for the delete itself</strong> beyond the initial lookup message "Press PF5 key to delete this user..." — pressing PF5 directly triggers deletion (via <code>DELETE-USER-INFO</code>) without an additional explicit "are you sure" prompt; the PF5 keypress itself doubles as the confirmation gesture, driven purely by the on-screen instructional message.</li>
+<li><strong>Field-length quirk</strong>: on some error paths cursor positioning is set via <code>-1</code> on <code>USRIDINL</code> (User ID field length) even in cases unrelated to the User ID itself (e.g., <code>READ-USER-SEC-FILE</code>'s <code>OTHER</code> branch sets <code>-1</code> on <code>FNAMEL</code>, First Name field, rather than <code>USRIDINL</code>) — worth verifying this is intentional cursor placement rather than a copy/paste inconsistency.</li>
+<li><strong>Commarea reentry logic</strong> depends on <code>CDEMO-PGM-REENTER</code> flag and <code>EIBCALEN</code>; if a caller doesn't set up the commarea correctly (e.g., <code>CDEMO-CU03-USR-SELECTED</code> not properly cleared between invocations), stale user selection could cause an unexpected auto-lookup on entry — this is inferred from the code but not independently verified against all calling programs.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>READ</code>, <code>DELETE</code></p>
 <h2 id="copybooks">Copybooks</h2>

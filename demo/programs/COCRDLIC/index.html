@@ -2261,24 +2261,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COCRDLIC
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2295,80 +2277,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3046,69 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3127,6 +2972,106 @@
 <h1 id="cocrdlic">COCRDLIC</h1>
 <p>Source: <code>cbl/COCRDLIC.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cocrdlic-credit-card-list-program">COCRDLIC — Credit Card List Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COCRDLIC is a CICS BMS transaction (<code>CCLI</code>) that displays a scrollable list of credit cards to the user. Administrators (or users without an account filter) see all cards on file; regular users only see the cards tied to their account, as passed in via the commarea. The user can page through results (PF7/PF8), select a card row with <code>S</code> (view) or <code>U</code> (update), and be transferred to the corresponding detail (<code>COCRDSLC</code>) or update (<code>COCRDUPC</code>) program, or exit back to the main menu (<code>COMEN01C</code>) via PF3.</p>
+<h2 id="how-it-works">How it works</h2>
+<p><strong>Entry and context setup (<code>0000-MAIN</code>)</strong>
+- On first entry (<code>EIBCALEN = 0</code>), the program initializes its commarea, sets itself as the "from" program/transaction, and marks itself at the first page (<code>CA-FIRST-PAGE</code>) with no last page yet shown.
+- On subsequent entries, it splits the incoming <code>DFHCOMMAREA</code> into the shared <code>CARDDEMO-COMMAREA</code> (copybook <code>COCOM01Y</code>) and its own private state block, <code>WS-THIS-PROGCOMMAREA</code> (holds first/last card keys, current screen number, and pagination flags).
+- If control arrives from the menu (a fresh <code>CDEMO-PGM-ENTER</code> from a different program), the program's private state is reset and the page counters restart at page 1.
+- <code>YYYY-STORE-PFKEY</code> translates the raw AID key pressed into a normalized value, then <code>0000-MAIN</code> validates it is one of ENTER, PF3, PF7, or PF8 (<code>PFK-VALID</code>/<code>PFK-INVALID</code>); anything else is coerced into ENTER.</p>
+<p><strong>Input receipt and validation</strong> (only if returning from itself)
+- <code>2000-RECEIVE-MAP</code> calls <code>2100-RECEIVE-SCREEN</code> (raw <code>RECEIVE MAP</code>) then <code>2200-EDIT-INPUTS</code>, which in turn validates:
+  - <code>2210-EDIT-ACCOUNT</code> — account number filter field.
+  - <code>2220-EDIT-CARD</code> — card number filter field.
+  - <code>2250-EDIT-ARRAY</code> — the row selection flags (<code>S</code>/<code>U</code>) entered by the user, tracking which row (if any) was selected via <code>I-SELECTED</code>.</p>
+<p><strong>Main dispatch (<code>EVALUATE TRUE</code> in <code>0000-MAIN</code>)</strong> — based on validation result and PF key pressed:
+- <strong>Input error</strong> → redisplay screen with error message (<code>1000-SEND-MAP</code>), no file read.
+- <strong>PF7 on first page</strong> → re-read forward from the first card key (<code>9000-READ-FORWARD</code>), redisplay.
+- <strong>PF3, or re-entering from another program</strong> → reset context, reload page 1, redisplay.
+- <strong>PF8 with a next page available</strong> → read forward from last displayed card, increment <code>WS-CA-SCREEN-NUM</code>, redisplay.
+- <strong>PF7, not on first page</strong> → read backward (<code>9100-READ-BACKWARDS</code>) from the first card, decrement page number, redisplay.
+- <strong>ENTER with a row flagged <code>S</code> (view)</strong> → set target program to <code>COCRDSLC</code>, pass selected account/card number, <code>XCTL</code> to it.
+- <strong>ENTER with a row flagged <code>U</code> (update)</strong> → same but target <code>COCRDUPC</code>.
+- <strong>OTHER (default)</strong> → re-read forward from the first card key and redisplay.</p>
+<p><strong>Reading and filtering records</strong>
+- <code>9000-READ-FORWARD</code> and <code>9100-READ-BACKWARDS</code> use CICS <code>STARTBR</code>/<code>READNEXT</code>/<code>READPREV</code>/<code>ENDBR</code> against the card file (via key <code>WS-CARD-RID</code>, comprising card number + account ID) to browse the <code>CARDDAT</code>/<code>CARDAIX</code> file/alternate index (see Inputs below), filling the <code>WS-SCREEN-ROWS</code> array (up to 7 rows) for one page.
+- Each candidate record is passed through <code>9500-FILTER-RECORDS</code>, which presumably applies the account-based restriction for non-admin users (exact filter logic not shown in the excerpt but referenced by both read paragraphs).</p>
+<p><strong>Displaying the screen (<code>1000-SEND-MAP</code>)</strong>
+- <code>1100-SCREEN-INIT</code> — clears the map, stamps current date/time, transaction/program name, and page number.
+- <code>1200-SCREEN-ARRAY-INIT</code> — copies each of up to 7 in-memory rows (account, card number, status, select flag) into the corresponding BMS map fields, skipping rows that are <code>LOW-VALUES</code> (i.e., unused).
+- <code>1250-SETUP-ARRAY-ATTRIBS</code> — sets field attributes (e.g., protect/unprotect) for the row select fields.
+- <code>1300-SETUP-SCREEN-ATTRS</code> — sets other screen-level attributes.
+- <code>1400-SETUP-MESSAGE</code> — builds the info/error message text shown to the user.
+- <code>1500-SEND-SCREEN</code> — issues the actual <code>SEND MAP</code>.</p>
+<p><strong>Returning control</strong>
+- All paths converge on <code>COMMON-RETURN</code>, which re-stamps the commarea with this program/transaction as the "from" context, repackages the shared commarea plus the private <code>WS-THIS-PROGCOMMAREA</code> block into <code>WS-COMMAREA</code>, and issues <code>EXEC CICS RETURN TRANSID(...) COMMAREA(...)</code> — i.e., control returns to CICS pseudo-conversationally, waiting for the next user action under the same transaction ID (<code>CCLI</code>).</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CARDDAT</code> (literal <code>LIT-CARD-FILE</code>)</td>
+<td>VSAM file (implied by STARTBR/READNEXT/READPREV)</td>
+<td>Primary card data file, browsed to build the list of cards.</td>
+</tr>
+<tr>
+<td><code>CARDAIX</code> (literal <code>LIT-CARD-FILE-ACCT-PATH</code>)</td>
+<td>VSAM alternate index (implied)</td>
+<td>Used to browse cards by account ID for the account-based filter path.</td>
+</tr>
+<tr>
+<td><code>DFHCOMMAREA</code></td>
+<td>CICS commarea (in/out)</td>
+<td>Carries shared <code>CARDDEMO-COMMAREA</code> state (copybook <code>COCOM01Y</code>) plus this program's private pagination state (<code>WS-THIS-PROGCOMMAREA</code>) across pseudo-conversational calls.</td>
+</tr>
+<tr>
+<td><code>CCRDLIA</code> map (mapset <code>COCRDLI</code>)</td>
+<td>BMS screen</td>
+<td>The card list screen — displays 7 rows of account/card/status plus select flags, and info/error messages.</td>
+</tr>
+<tr>
+<td><code>COCRDSLC</code></td>
+<td>Called program (XCTL)</td>
+<td>Card detail view, invoked when a row is selected with <code>S</code>.</td>
+</tr>
+<tr>
+<td><code>COCRDUPC</code></td>
+<td>Called program (XCTL)</td>
+<td>Card update, invoked when a row is selected with <code>U</code>.</td>
+</tr>
+<tr>
+<td><code>COMEN01C</code></td>
+<td>Called program (XCTL)</td>
+<td>Main menu, invoked on PF3 exit.</td>
+</tr>
+<tr>
+<td>Copybooks: <code>COCOM01Y</code>, <code>COCRDLI</code>, <code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CSUSR01Y</code>, <code>CVACT02Y</code>, <code>CVCRD01Y</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Data/screen/control-block definitions</td>
+<td>Common commarea layout, screen layout, titles, date/time, messages, signed-on user info, card record layout, and IBM-supplied CICS constants (AID keys, BMS attributes).</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables are used (parser found none) — this program relies entirely on VSAM file access via CICS file control commands.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Hard-coded literals</strong>: program name (<code>COCRDLIC</code>), transaction ID (<code>CCLI</code>), mapset/map names, and the names/transids/maps of the menu, detail, and update programs are all embedded as <code>WS-CONSTANTS</code> — any rename of those programs/transactions requires a source change and recompile here.</li>
+<li><strong>Fixed page size of 7 rows</strong> (<code>WS-MAX-SCREEN-LINES VALUE 7</code>) is baked into both the working-storage array (<code>WS-SCREEN-ROWS OCCURS 7 TIMES</code>) and the screen layout paragraph (<code>1200-SCREEN-ARRAY-INIT</code>), which explicitly handles rows 1–7 individually rather than in a loop — increasing page size would require rewriting this paragraph.</li>
+<li><strong>Row-selection ambiguity</strong>: <code>2250-EDIT-ARRAY</code> tracks a single <code>I-SELECTED</code> index; the dispatch logic assumes only one row was selected. The message <code>WS-MORE-THAN-1-ACTION</code> ("PLEASE SELECT ONLY ONE RECORD TO VIEW OR UPDATE") suggests multi-select is explicitly disallowed, but the exact validation for that is in <code>2250-EDIT-ARRAY</code>, not shown in this excerpt.</li>
+<li><strong>No visible error handling for CICS file operations</strong> (STARTBR/READNEXT/READPREV/ENDBR) in the given source excerpt — <code>WS-FILE-ERROR-MESSAGE</code> structure exists for building file error messages, implying RESP/RESP2 checking occurs somewhere in <code>9000-READ-FORWARD</code>/<code>9100-READ-BACKWARDS</code>/<code>9500-FILTER-RECORDS</code>, but the actual response-code branching isn't shown here and should be verified in the full paragraph bodies.</li>
+<li><strong>Duplicate/dead <code>WHEN</code> clause</strong>: in the <code>EVALUATE TRUE</code> in <code>0000-MAIN</code>, <code>WHEN CCARD-AID-PFK07 AND CA-FIRST-PAGE</code> appears twice in a row (lines are consecutive) — the first is a no-op fallthrough with no statements, immediately followed by the real logic; this looks like a leftover/dead clause but is harmless since COBOL <code>EVALUATE</code> takes the first true match, and here both clauses have the same condition.</li>
+<li><strong>Commented-out account ID moves</strong>: in several places (e.g., page-up/page-down/PF3 paths) the line <code>MOVE WS-CA-xxx-CARD-ACCT-ID TO WS-CARD-RID-ACCT-ID</code> is commented out, meaning only the card number portion of the browse key is being reset, not the account ID — this could be intentional (account ID filter handled elsewhere) or a latent bug; not enough context in this excerpt to be certain.</li>
+<li><strong>PF key remapping</strong>: <code>YYYY-STORE-PFKEY</code> (not shown in detail here) translates raw AID codes before validation — the actual PF key mapping logic lives outside this excerpt and should be checked separately if PF key behavior seems inconsistent.</li>
+<li><strong>Security/admin filtering</strong>: the business rule "admin sees all cards, regular user sees only their own" is implemented via <code>9500-FILTER-RECORDS</code>, but the actual filter condition (what field distinguishes admin vs. user) is not visible in the supplied source — confirm against <code>CSUSR01Y</code> / <code>CDEMO-USRTYP-*</code> fields before relying on this description for security-sensitive changes.</li>
+<li><strong>Commarea size risk</strong>: the program manually splits/reassembles a fixed-size <code>WS-COMMAREA PIC X(2000)</code> using <code>LENGTH OF CARDDEMO-COMMAREA</code> offsets; if either copybook's size changes without corresponding updates here, this could silently truncate or misalign data.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

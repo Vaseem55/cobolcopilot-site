@@ -2429,24 +2429,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COPAUS0C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2463,69 +2445,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,104 @@
 <h1 id="copaus0c">COPAUS0C</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/COPAUS0C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="copaus0c-pending-authorization-summary-screen">COPAUS0C — Pending Authorization Summary Screen</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This CICS program displays a paginated summary list of pending card authorizations (approved/declined transactions awaiting settlement) for a given account. It shows account and customer identification details plus summary counts/amounts of authorizations, and lets a call-center or operations user page through the list (5 records per screen) or drill into a single authorization's detail screen. It is the "list" screen in a Authorization inquiry workflow, paired with a detail program (<code>COPAUS1C</code>).</p>
+<h2 id="how-it-works">How it works</h2>
+<p><strong>Entry (<code>MAIN-PARA</code>)</strong>
+- If invoked with no COMMAREA (<code>EIBCALEN = 0</code>), it's a fresh start from the menu: the program initializes the commarea, blanks the map, and sends the empty screen (<code>SEND-PAULST-SCREEN</code>).
+- If invoked with a COMMAREA but not yet "re-entered" (<code>CDEMO-PGM-REENTER</code> off — i.e., coming from another program such as a menu with an account ID pre-populated), it copies in the account ID, calls <code>GATHER-DETAILS</code> to pull data for that account, and sends the screen.
+- On subsequent invocations (user pressed a key), it receives the screen (<code>RECEIVE-PAULST-SCREEN</code>) and dispatches based on <code>EIBAID</code>:
+  - <strong>ENTER</strong> → <code>PROCESS-ENTER-KEY</code> (validates account id, handles row selection, re-sends screen)
+  - <strong>PF3</strong> → <code>RETURN-TO-PREV-SCREEN</code> (XCTL back to menu program)
+  - <strong>PF7</strong> → <code>PROCESS-PF7-KEY</code> (page backward)
+  - <strong>PF8</strong> → <code>PROCESS-PF8-KEY</code> (page forward)
+  - <strong>other keys</strong> → sets an error flag/message ("Invalid key") and re-sends the screen
+- The paragraph always ends with <code>EXEC CICS RETURN TRANSID('CPVS') COMMAREA(...)</code> — pseudo-conversational CICS, resuming on the next user interaction under transaction <code>CPVS</code>.</p>
+<p><strong>Enter key (<code>PROCESS-ENTER-KEY</code>)</strong>
+- Validates the entered account ID is present and numeric; sets error messages/cursor position (<code>ACCTIDL = -1</code>) otherwise.
+- If a row was selected with <code>S</code>/<code>s</code> in one of the 5 selection fields (SEL0001I–SEL0005I), it captures the corresponding stored authorization key (<code>CDEMO-CPVS-AUTH-KEYS</code>) and does an <code>EXEC CICS XCTL</code> to the detail program <code>COPAUS1C</code>, passing the commarea forward (context/tranid set for the transfer).
+- Otherwise re-runs <code>GATHER-DETAILS</code> to refresh the list for the (possibly newly entered) account.</p>
+<p><strong>Gathering data (<code>GATHER-DETAILS</code> → <code>GATHER-ACCOUNT-DETAILS</code> → <code>GET-AUTH-SUMMARY</code> → <code>PROCESS-PAGE-FORWARD</code>)</strong>
+- <code>GATHER-ACCOUNT-DETAILS</code> looks up the Card Cross-Reference (<code>GETCARDXREF-BYACCT</code>), then Account Master (<code>GETACCTDATA-BYACCT</code>), then Customer Master (<code>GETCUSTDATA-BYCUST</code>) via CICS <code>READ</code>, populating name/address/phone/credit-limit fields on the map.
+- <code>GET-AUTH-SUMMARY</code> schedules the IMS PSB (<code>SCHEDULE-PSB</code>) and issues a <code>GU</code> (Get Unique) DL/I call against the <code>PAUTSUM0</code> root segment keyed by account ID, retrieving approved/declined counts and balances into the summary section of the screen.
+- If a summary segment is found, <code>PROCESS-PAGE-FORWARD</code> retrieves up to 5 child detail segments (<code>PAUTDTL1</code>, authorization details) via <code>GET-AUTHORIZATIONS</code> (DL/I <code>GNP</code> — Get Next within Parent), populating each row through <code>POPULATE-AUTH-LIST</code>, and tracks page boundaries (first/last key per page) in the commarea (<code>CDEMO-CPVS-PAUKEY-PREV-PG</code>, <code>CDEMO-CPVS-PAUKEY-LAST</code>).</p>
+<p><strong>Paging (PF7 / PF8)</strong>
+- <code>PROCESS-PF7-KEY</code> (page back): if not already on page 1, repositions to the saved key for the previous page (<code>GET-AUTH-SUMMARY</code> re-fetches summary, then re-scans forward from that key).
+- <code>PROCESS-PF8-KEY</code> (page forward): if a "last key" exists, re-fetches the summary and repositions (<code>REPOSITION-AUTHORIZATIONS</code>, DL/I <code>GNP ... WHERE</code>) to resume from where the previous page left off; otherwise shows a "top/bottom of page" message and does not move.</p>
+<p><strong>Screen I/O</strong>
+- <code>SEND-PAULST-SCREEN</code> always de-schedules any active IMS PSB via <code>SYNCPOINT</code> first, populates header info (title, date/time via <code>POPULATE-HEADER-INFO</code>), and sends the BMS map <code>COPAU0A</code>/mapset <code>COPAU00</code>, either erasing the screen or not depending on <code>WS-SEND-ERASE-FLG</code>.
+- <code>RECEIVE-PAULST-SCREEN</code> reads back the operator's input into <code>COPAU0AI</code>.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Access</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CXACAIX</code> (Card Cross-Reference, accessed by account-ID alt index)</td>
+<td>VSAM/CICS file</td>
+<td>READ</td>
+<td>Resolve account ID → customer ID and card number (<code>GETCARDXREF-BYACCT</code>)</td>
+</tr>
+<tr>
+<td><code>ACCTDAT</code> (Account Master)</td>
+<td>VSAM/CICS file</td>
+<td>READ</td>
+<td>Retrieve account details: credit limit, cash credit limit (<code>GETACCTDATA-BYACCT</code>)</td>
+</tr>
+<tr>
+<td><code>CUSTDAT</code> (Customer Master)</td>
+<td>VSAM/CICS file</td>
+<td>READ</td>
+<td>Retrieve customer name, address, phone (<code>GETCUSTDATA-BYCUST</code>)</td>
+</tr>
+<tr>
+<td>IMS database via PSB <code>PSBPAUTB</code>, PCB #1</td>
+<td>IMS DL/I</td>
+<td>GU / GNP</td>
+<td><code>PAUTSUM0</code> root segment = per-account authorization summary (counts, balances); <code>PAUTDTL1</code> child segment = individual pending authorization records, keyed by <code>PAUT9CTS</code></td>
+</tr>
+<tr>
+<td>BMS map <code>COPAU0A</code> / mapset <code>COPAU00</code></td>
+<td>CICS terminal I/O</td>
+<td>SEND/RECEIVE</td>
+<td>The authorization summary list screen (header, account/customer info, summary totals, 5-row auth list, selection fields, error message line)</td>
+</tr>
+<tr>
+<td>DFHCOMMAREA / <code>CARDDEMO-COMMAREA</code> (via <code>COCOM01Y</code> + local <code>CDEMO-CPVS-*</code> fields)</td>
+<td>CICS commarea</td>
+<td>pass-through</td>
+<td>Carries account ID, navigation state (page number, prior-page keys, last key, selected auth key/flag), and program-to-program routing info across pseudo-conversational turns and to/from <code>COPAUS1C</code>/menu</td>
+</tr>
+<tr>
+<td>Called/target programs: <code>COPAUS1C</code> (detail), <code>COMEN01C</code>/<code>COSGN00C</code> (menu/signon)</td>
+<td>CICS XCTL</td>
+<td>outbound</td>
+<td>Drill into a selected authorization's detail, or return to the menu (PF3)</td>
+</tr>
+</tbody>
+</table>
+<p>No DB2 tables are used (<code>sql_tables</code> is empty) — all authorization data comes from IMS.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Pseudo-conversational error handling relies on <code>WS-MESSAGE</code> and cursor positioning (<code>ACCTIDL = -1</code>)</strong> — every file/DB error path sets an error flag, builds a message string with response/reason codes, and re-sends the screen; the program does not abend on typical NOTFND/system errors, it displays them to the user instead.</li>
+<li><strong>IMS PSB scheduling/de-scheduling is tightly coupled to screen sends</strong>: <code>SCHEDULE-PSB</code> is called before each summary/detail read, and <code>SEND-PAULST-SCREEN</code> unconditionally issues <code>SYNCPOINT</code> and de-schedules the PSB if one is active. This means every screen send commits the current unit of work — a pattern to watch when refactoring, since it affects transaction boundaries.</li>
+<li><strong><code>PSB-SCHEDULED-MORE-THAN-ONCE</code> is handled by force-terminating and rescheduling</strong> the PSB (<code>EXEC DLI TERM</code> then re-<code>SCHD</code>) — a workaround for a specific IMS condition, not a normal error path.</li>
+<li><strong>Hard-coded values</strong>: program names (<code>COPAUS0C</code>, <code>COPAUS1C</code>, <code>COMEN01C</code>, fallback <code>COSGN00C</code>), transaction ID <code>CPVS</code>, PSB name <code>PSBPAUTB</code>, PCB number <code>+1</code>, file DD/dataset names (<code>ACCTDAT</code>, <code>CUSTDAT</code>, <code>CARDDAT</code>, <code>CXACAIX</code>, <code>CCXREF</code> — note <code>WS-CCXREF-FILE</code> is defined but appears unused in the shown logic). These would need central configuration if ported off mainframe.</li>
+<li><strong>Fixed page size of 5 rows</strong> — the screen and all list-handling logic (<code>POPULATE-AUTH-LIST</code>, <code>INITIALIZE-AUTH-DATA</code>, selection fields SEL0001–SEL0005) are hard-wired to exactly 5 authorization rows per page; changing page size requires touching the map, working storage, and multiple <code>EVALUATE WS-IDX</code> blocks.</li>
+<li><strong>Only 20 "previous page" keys are retained</strong> (<code>CDEMO-CPVS-PAUKEY-PREV-PG</code> OCCURS 20 TIMES) — paging backward beyond 20 pages is not supported by this structure (behavior beyond that limit is not shown/clear from the code).</li>
+<li><strong>Selection validation is minimal</strong>: only <code>'S'</code>/<code>'s'</code> are accepted as valid selection values; anything else in a non-blank selection field yields "Invalid selection. Valid value is S" without further guidance on the correct row/field.</li>
+<li><strong>Account ID handling</strong>: an invalid/non-numeric account ID resets <code>WS-ACCT-ID</code> to <code>LOW-VALUES</code> and blanks the account field on screen; downstream logic (<code>GATHER-DETAILS</code>) only proceeds if <code>WS-ACCT-ID</code> is not <code>LOW-VALUES</code>, silently skipping data gathering otherwise.</li>
+<li><strong>Date/time formatting is manual byte-slicing</strong> (e.g., <code>PA-AUTH-ORIG-TIME(1:2)</code> etc. into a HH:MM:SS template) rather than using intrinsic date functions — fragile if source segment layouts change.</li>
+<li><strong><code>GET-AUTH-SUMMARY</code> has a commented-out alternate key source</strong> (<code>XREF-ACCT-ID</code> vs <code>CDEMO-ACCT-ID</code>) left in the code — worth flagging to confirm which account ID is intended to key the IMS summary lookup, since both exist in working storage.</li>
+<li><strong>No SQL/DB2 usage</strong> despite this being in a DB2/IMS/MQ-named application folder; all authorization data is IMS-only for this program, which is a useful fact for anyone assuming DB2 involvement based on the repo path.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SYNCPOINT</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>READ</code></p>
 <h2 id="copybooks">Copybooks</h2>

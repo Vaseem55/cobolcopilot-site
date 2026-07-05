@@ -2401,24 +2401,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COPAUA0C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2435,80 +2417,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3046,69 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3127,6 +2972,100 @@
 <h1 id="copaua0c">COPAUA0C</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/COPAUA0C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="copaua0c-card-authorization-decision-program">COPAUA0C — Card Authorization Decision Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COPAUA0C is a CICS/IMS/MQ program that processes card <strong>authorization requests</strong> received via MQ, decides whether to approve or decline each transaction based on available credit, and sends an authorization response back to the requesting queue. It is the core decisioning engine in the CardDemo authorization flow, checking the card cross-reference, account, customer, and pending-authorization data before rendering a decision. It also persists authorization activity (summary balances and detail records) to an IMS database for later reconciliation.</p>
+<h2 id="how-it-works">How it works</h2>
+<ul>
+<li><strong>MAIN-PARA</strong> drives the whole program: <code>1000-INITIALIZE</code> → <code>2000-MAIN-PROCESS</code> → <code>9000-TERMINATE</code>, then issues <code>EXEC CICS RETURN</code>.</li>
+<li><strong>1000-INITIALIZE</strong>: Retrieves CICS start-up data (<code>EXEC CICS RETRIEVE INTO MQTM</code>) to get the request queue name and trigger data, sets an MQ wait interval (5000), opens the request queue (<code>1100-OPEN-REQUEST-QUEUE</code>, via <code>MQOPEN</code>), then does a first read from the queue (<code>3100-READ-REQUEST-MQ</code>).</li>
+<li><strong>2000-MAIN-PROCESS</strong> loops (<code>PERFORM UNTIL NO-MORE-MSG-AVAILABLE OR WS-LOOP-END</code>):</li>
+<li><code>2100-EXTRACT-REQUEST-MSG</code> unstrings the raw MQ message text (comma-delimited) into the <code>PENDING-AUTH-REQUEST</code> fields (date, time, card number, auth type, amount, merchant details, etc.) and converts the amount text to numeric via <code>FUNCTION NUMVAL</code>.</li>
+<li><code>5000-PROCESS-AUTH</code> performs the actual authorization logic (see below).</li>
+<li>The program increments a processed-message counter, issues <code>EXEC CICS SYNCPOINT</code> to commit the unit of work, resets the IMS PSB-scheduled flag, and either stops the loop (after <code>WS-REQSTS-PROCESS-LIMIT</code> = 500 messages) or reads the next message.</li>
+<li><strong>5000-PROCESS-AUTH</strong> — the core decision path:</li>
+<li>Assumes approval (<code>APPROVE-AUTH</code>), then schedules the IMS PSB (<code>1200-SCHEDULE-PSB</code>).</li>
+<li>Looks up the card in the cross-reference file (<code>5100-READ-XREF-RECORD</code>).</li>
+<li>If found, reads the account master (<code>5200-READ-ACCT-RECORD</code>), customer master (<code>5300-READ-CUST-RECORD</code>), the IMS pending-authorization summary segment (<code>5500-READ-AUTH-SUMMRY</code>), and a currently empty profile-data hook (<code>5600-READ-PROFILE-DATA</code>, just <code>CONTINUE</code>).</li>
+<li><code>6000-MAKE-DECISION</code> computes available credit (from the IMS summary segment if found, else from the account master) and compares it to the transaction amount to approve or decline, setting response codes and reason codes, then builds the pipe/comma-delimited response string.</li>
+<li><code>7100-SEND-RESPONSE</code> sends this response to the reply queue via <code>MQPUT1</code>.</li>
+<li>If the card was found in xref, <code>8000-WRITE-AUTH-TO-DB</code> updates the IMS summary segment (<code>8400-UPDATE-SUMMARY</code>) and inserts a new detail segment (<code>8500-INSERT-AUTH</code>).</li>
+<li><strong>9000-TERMINATE</strong> closes the request MQ queue (<code>9100-CLOSE-REQUEST-QUEUE</code> via <code>MQCLOSE</code>).</li>
+<li><strong>9500-LOG-ERROR</strong> is the common error-logging paragraph, invoked from nearly every I/O step; it performs <code>9990-END-ROUTINE</code>, which itself performs <code>9000-TERMINATE</code> — meaning <strong>any logged error triggers program termination</strong>, not just a warning message.</li>
+</ul>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Request MQ queue (name from <code>MQTM-QNAME</code>/trigger data)</td>
+<td>MQ queue</td>
+<td>Source of authorization request messages, opened once (<code>MQOPEN</code>), read repeatedly (<code>MQGET</code>) up to 500 times per program invocation</td>
+</tr>
+<tr>
+<td>Reply MQ queue (<code>WS-REPLY-QNAME</code>, from <code>MQMD-REPLYTOQ</code>)</td>
+<td>MQ queue</td>
+<td>Destination for the authorization response, written via <code>MQPUT1</code></td>
+</tr>
+<tr>
+<td><code>CCXREF</code> (<code>WS-CCXREF-FILE</code>)</td>
+<td>CICS file (VSAM)</td>
+<td>Card cross-reference lookup: card number → customer ID / account ID (<code>CVACT03Y</code> layout)</td>
+</tr>
+<tr>
+<td><code>ACCTDAT</code> (<code>WS-ACCTFILENAME</code>)</td>
+<td>CICS file (VSAM)</td>
+<td>Account master record — credit limit, current balance (<code>CVACT01Y</code> layout)</td>
+</tr>
+<tr>
+<td><code>CUSTDAT</code> (<code>WS-CUSTFILENAME</code>)</td>
+<td>CICS file (VSAM)</td>
+<td>Customer master record (<code>CVCUS01Y</code> layout)</td>
+</tr>
+<tr>
+<td><code>CARDDAT</code> / <code>CARDAIX</code> (<code>WS-CARDFILENAME</code>, <code>WS-CARDFILENAME-ACCT-PATH</code>)</td>
+<td>CICS file names declared but <strong>not referenced</strong> in any <code>EXEC CICS READ</code> in this program (dead/unused declarations as far as parsed facts show)</td>
+<td></td>
+</tr>
+<tr>
+<td>IMS database via PSB <code>PSBPAUTB</code></td>
+<td>IMS DB (DL/I)</td>
+<td><code>PAUTSUM0</code> root segment (pending authorization summary — credit limit/balance) read (<code>GU</code>) and updated; child detail segment (<code>PENDING-AUTH-DETAILS</code>/<code>CIPAUDTY</code>) inserted for each processed authorization</td>
+</tr>
+<tr>
+<td><code>CCPAURQY</code> / <code>CCPAURLY</code> copybooks</td>
+<td>In-memory layouts</td>
+<td>Request and response message formats used to parse the MQ message and build the reply string</td>
+</tr>
+<tr>
+<td><code>CCPAUERY</code> copybook</td>
+<td>In-memory layout</td>
+<td>Error log record layout (<code>ERR-LOCATION</code>, <code>ERR-MESSAGE</code>, <code>ERR-CODE-1/2</code>, <code>ERR-EVENT-KEY</code>) used by <code>9500-LOG-ERROR</code></td>
+</tr>
+<tr>
+<td><code>CMQODV</code>, <code>CMQMDV</code>, <code>CMQV</code>, <code>CMQTML</code>, <code>CMQPMOV</code>, <code>CMQGMOV</code> copybooks</td>
+<td>MQ control structures</td>
+<td>Object descriptors, message descriptors, constants, trigger data, put/get message options for <code>MQOPEN</code>/<code>MQGET</code>/<code>MQPUT1</code>/<code>MQCLOSE</code> calls</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>Errors are fatal by design.</strong> <code>9500-LOG-ERROR</code> always performs <code>9990-END-ROUTINE</code>, which performs <code>9000-TERMINATE</code>. This means even a single MQ, CICS, or IMS error during processing (e.g., a <code>NOTFND</code> on account read, classified as a "warning") still routes through logic that closes the queue and ends the program — worth verifying this is the intended behavior versus just logging and continuing, since the code sets warning-severity flags (<code>ERR-WARNING</code>) but the shared clean-up path still runs.</li>
+<li><strong>Hard-coded values</strong>: PSB name <code>PSBPAUTB</code>, transaction ID <code>CP00</code>, file names (<code>ACCTDAT</code>, <code>CUSTDAT</code>, <code>CARDDAT</code>, <code>CARDAIX</code>, <code>CCXREF</code>), message batch limit of 500 (<code>WS-REQSTS-PROCESS-LIMIT</code>), MQ wait interval of 5000 (ms, presumably), MQ message expiry of 50, and decline reason codes (<code>3100</code>, <code>4100</code>, <code>4200</code>, <code>4300</code>, <code>5100</code>, <code>5200</code>, <code>9000</code>) are all embedded directly in the code rather than externalized/configurable.</li>
+<li><strong>Message parsing is fragile</strong>: <code>2100-EXTRACT-REQUEST-MSG</code> uses a straight <code>UNSTRING ... DELIMITED BY ','</code> against the raw MQ payload with a fixed field order. Any change to the upstream message format (extra/missing commas, reordered fields) will silently misalign data into the wrong fields, with no validation shown.</li>
+<li><strong>Fraud/profile-based decline reasons are declared but not populated.</strong> The <code>WS-DECLINE-REASON-FLG</code> has 88-level conditions for <code>CARD-NOT-ACTIVE</code>, <code>ACCOUNT-CLOSED</code>, <code>CARD-FRAUD</code>, <code>MERCHANT-FRAUD</code>, and <code>6000-MAKE-DECISION</code> evaluates them, but nothing in the shown code ever sets these conditions (only <code>INSUFFICIENT-FUND</code> is set) — <code>5600-READ-PROFILE-DATA</code> is an empty stub (<code>CONTINUE</code>), suggesting fraud/profile checks are planned but not yet implemented.</li>
+<li><strong>PSB scheduling retry logic</strong>: <code>1200-SCHEDULE-PSB</code> retries the DL/I <code>SCHD</code> once if the PSB is already scheduled (<code>PSB-SCHEDULED-MORE-THAN-ONCE</code>), issuing a <code>TERM</code> first. Other IMS failure conditions (<code>RETRY-CONDITION</code> 88-level: <code>BA</code>, <code>FH</code>, <code>TE</code>) are defined but do not appear to trigger any retry — only logged as critical errors.</li>
+<li><strong>Two files declared but seemingly unused</strong>: <code>CARDDAT</code> and <code>CARDAIX</code> filenames are set up in working storage but no <code>EXEC CICS READ</code> against them appears in the source shown — potentially vestigial from a related program, or used in a portion of the source not included here.</li>
+<li><strong>Decision logic depends on data source precedence</strong>: if an IMS pending-auth summary segment exists, its credit limit/balance is used; otherwise the account master's credit limit/balance is used. If the account isn't found at all, the authorization is unconditionally declined. Confirm this fallback hierarchy matches business intent, since IMS summary data and account master data could theoretically disagree.</li>
+<li><strong>Unit-of-work boundary</strong>: <code>EXEC CICS SYNCPOINT</code> is issued after each message is processed (commit per message), and the IMS PSB-scheduled flag is manually reset (<code>IMS-PSB-NOT-SCHD</code>) afterward — implying the PSB must be freshly rescheduled for every message, which happens in <code>5000-PROCESS-AUTH</code> via <code>1200-SCHEDULE-PSB</code>.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>RETRIEVE</code>, <code>READ</code>, <code>ASKTIME NOHANDLE</code>, <code>FORMATTIME</code>, <code>WRITEQ</code></p>
 <h2 id="copybooks">Copybooks</h2>

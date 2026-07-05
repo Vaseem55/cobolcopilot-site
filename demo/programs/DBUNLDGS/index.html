@@ -2849,24 +2849,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    DBUNLDGS
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2883,69 +2865,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,131 @@
 <h1 id="dbunldgs">DBUNLDGS</h1>
 <p>Source: <code>app-authorization-ims-db2-mq/cbl/DBUNLDGS.CBL</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="dbunldgs-program-documentation">DBUNLDGS — Program Documentation</h1>
+<h2 id="purpose">Purpose</h2>
+<p>DBUNLDGS is a batch IMS-to-GSAM unload utility. It reads every <strong>Pending Authorization Summary</strong> record (the IMS root segment <code>PAUTSUM0</code>) and its associated <strong>Pending Authorization Details</strong> child records (segment <code>PAUTDTL1</code>) from an IMS database, and copies them out unchanged into two GSAM sequential extract files. In business terms, it produces a full extract/backup of the pending-authorization database (summary + detail records) so the data can be reloaded, archived, or fed to a downstream process.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>MAIN-PARA</code>, which follows a simple sequential-read/extract pattern:</p>
+<ol>
+<li>
+<p><strong><code>1000-INITIALIZE</code></strong> — Captures the current date (<code>ACCEPT ... FROM DATE</code>/<code>DAY</code>) and prints startup banner messages. (Note: the original file-open logic and a <code>SYSIN</code> parameter read for <code>PRM-INFO</code> are commented out/disabled — see "Things to know".)</p>
+</li>
+<li>
+<p><strong><code>2000-FIND-NEXT-AUTH-SUMMARY</code></strong> (looped until end of root segments) — Issues an IMS <code>GN</code> (Get Next) call via <code>CBLTDLI</code> against <code>PAUTBPCB</code> using an unqualified SSA for segment <code>PAUTSUM0</code>, retrieving the next Pending Authorization Summary root segment.</p>
+</li>
+<li>If the call succeeds (status = spaces), the summary record is copied to a working buffer, the account ID (<code>PA-ACCT-ID</code>) is validated as numeric, and if valid:<ul>
+<li><code>3100-INSERT-PARENT-SEG-GSAM</code> is performed to write the summary segment to the GSAM output file.</li>
+<li><code>3000-FIND-NEXT-AUTH-DTL</code> is performed repeatedly to pull all child detail segments for this parent, until no more children exist.</li>
+</ul>
+</li>
+<li>If status = <code>GB</code> (end of database), the root-segment loop flag is set and the program stops reading.</li>
+<li>
+<p>Any other non-space, non-<code>GB</code> status is treated as an error: it is displayed along with the IMS key feedback area, and the program aborts via <code>9999-ABEND</code>.</p>
+</li>
+<li>
+<p><strong><code>3000-FIND-NEXT-AUTH-DTL</code></strong> — Issues an IMS <code>GNP</code> (Get Next within Parent) call via <code>CBLTDLI</code> against <code>PAUTBPCB</code> for segment <code>PAUTDTL1</code>, retrieving detail child segments belonging to the current parent.</p>
+</li>
+<li>On success (status = spaces), the detail record is copied and <code>3200-INSERT-CHILD-SEG-GSAM</code> writes it to the GSAM output file.</li>
+<li>On status <code>GE</code> (no more segments under this parent), the child loop is ended.</li>
+<li>
+<p>Any other status triggers a display of the error/key feedback area and an abend.</p>
+</li>
+<li>
+<p><strong><code>3100-INSERT-PARENT-SEG-GSAM</code></strong> — Issues an IMS <code>ISRT</code> call via <code>CBLTDLI</code> against the <code>PASFLPCB</code> (GSAM PCB) to write the Pending Authorization Summary segment to the first GSAM output file. Any non-space status aborts the program.</p>
+</li>
+<li>
+<p><strong><code>3200-INSERT-CHILD-SEG-GSAM</code></strong> — Issues an IMS <code>ISRT</code> call via <code>CBLTDLI</code> against the <code>PADFLPCB</code> (GSAM PCB) to write the Pending Authorization Details segment to the second GSAM output file. Any non-space status aborts the program.</p>
+</li>
+<li>
+<p><strong><code>4000-FILE-CLOSE</code></strong> — Displays a closing message. (The actual <code>CLOSE</code> statements for the legacy sequential files are commented out — GSAM close is implicitly handled by IMS/PCB termination, not by explicit COBOL file I/O here.)</p>
+</li>
+<li>
+<p><strong><code>9999-ABEND</code></strong> — Common error routine: displays an abend message, sets <code>RETURN-CODE</code> to 16, and terminates via <code>GOBACK</code>.</p>
+</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; Outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Type</th>
+<th>Direction</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PAUTBPCB</code></td>
+<td>IMS DB PCB (linkage, copybook <code>PAUTBPCB</code>)</td>
+<td>Input</td>
+<td>Source IMS database access path used for <code>GN</code>/<code>GNP</code> calls against the Pending Authorization database (root segment <code>PAUTSUM0</code>, child segment <code>PAUTDTL1</code>).</td>
+</tr>
+<tr>
+<td><code>PASFLPCB</code></td>
+<td>IMS GSAM PCB (linkage, copybook <code>PASFLPCB</code>)</td>
+<td>Output</td>
+<td>GSAM sequential extract file that receives the Pending Authorization <strong>Summary</strong> (parent) segments via <code>ISRT</code>.</td>
+</tr>
+<tr>
+<td><code>PADFLPCB</code></td>
+<td>IMS GSAM PCB (linkage, copybook <code>PADFLPCB</code>)</td>
+<td>Output</td>
+<td>GSAM sequential extract file that receives the Pending Authorization <strong>Details</strong> (child) segments via <code>ISRT</code>.</td>
+</tr>
+<tr>
+<td><code>PENDING-AUTH-SUMMARY</code> (copybook <code>CIPAUSMY</code>)</td>
+<td>IMS segment layout</td>
+<td>Data structure</td>
+<td>Layout of the root/summary segment retrieved and inserted.</td>
+</tr>
+<tr>
+<td><code>PENDING-AUTH-DETAILS</code> (copybook <code>CIPAUDTY</code>)</td>
+<td>IMS segment layout</td>
+<td>Data structure</td>
+<td>Layout of the child/detail segment retrieved and inserted.</td>
+</tr>
+<tr>
+<td><code>IMSFUNCS</code> copybook</td>
+<td>Constants</td>
+<td>—</td>
+<td>Supplies IMS call-function codes (<code>FUNC-GN</code>, <code>FUNC-GNP</code>, <code>FUNC-ISRT</code>, etc.) used in <code>CBLTDLI</code> calls.</td>
+</tr>
+<tr>
+<td>Legacy <code>OPFILE1</code>/<code>OPFILE2</code> (commented out)</td>
+<td>Sequential files</td>
+<td>N/A (unused)</td>
+<td>Originally intended as flat-file outputs; superseded by the GSAM PCB approach — see quirks below.</td>
+</tr>
+</tbody>
+</table>
+<p>No relational/SQL tables or CICS commands are used by this program (batch IMS DL/I only).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li>
+<p><strong>Dead/legacy code left in place</strong>: The <code>FILE-CONTROL</code> <code>SELECT</code> statements for <code>OPFILE1</code>/<code>OPFILE2</code>, their <code>OPEN</code>, <code>WRITE</code>, and <code>CLOSE</code> logic, and file-status error handling are all commented out. The equivalent 01-level record layouts (<code>OPFIL1-REC</code>, <code>OPFIL2-REC</code>) still exist in Working-Storage and are populated (<code>MOVE PENDING-AUTH-SUMMARY TO OPFIL1-REC</code>, etc.) but never written to a sequential file — the data is written only through the GSAM PCBs (<code>PASFLPCB</code>/<code>PADFLPCB</code>) instead. This suggests the program was migrated from flat-file output to GSAM output, and the old code was left for reference. Anyone modifying this program should be careful not to assume <code>OPFILE1</code>/<code>OPFILE2</code> are active.</p>
+</li>
+<li>
+<p><strong>Parameter input disabled</strong>: <code>PRM-INFO</code> (containing <code>P-EXPIRY-DAYS</code>, <code>P-CHKP-FREQ</code>, <code>P-CHKP-DIS-FREQ</code>, <code>P-DEBUG-FLAG</code>) is defined but the <code>ACCEPT PRM-INFO FROM SYSIN</code> statement is commented out, so these fields are never populated. Related working-storage fields like <code>WS-EXPIRY-DAYS</code>, <code>WS-DAY-DIFF</code>, checkpoint counters (<code>WS-NO-CHKP</code>, <code>WK-CHKPT-ID</code>) are declared but not used anywhere in the visible procedure logic — likely vestiges of checkpoint/restart or expiry-date functionality that was never completed or was removed.</p>
+</li>
+<li>
+<p><strong>Numeric validation guard</strong>: Only summary records where <code>PA-ACCT-ID IS NUMERIC</code> are processed and have their children extracted; non-numeric account IDs are silently skipped (no detail read, no error, no log message). This is a potential data-quality blind spot — any summary segment with a corrupt/non-numeric account ID is silently dropped from the extract with no record of the skip.</p>
+</li>
+<li>
+<p><strong>Error handling is abrupt</strong>: Any unexpected IMS status code from <code>GN</code>, <code>GNP</code>, or <code>ISRT</code> calls (other than the expected space/<code>GB</code>/<code>GE</code> conditions) causes an immediate <code>9999-ABEND</code>, which sets <code>RETURN-CODE = 16</code> and calls <code>GOBACK</code> — there is no cleanup, checkpoint, or partial-completion handling. A failure partway through a large unload leaves the target GSAM files in a partial state with no resumption logic.</p>
+</li>
+<li>
+<p><strong>Hard-coded segment names</strong>: The unqualified SSAs (<code>ROOT-UNQUAL-SSA</code> = <code>'PAUTSUM0'</code>, <code>CHILD-UNQUAL-SSA</code> = <code>'PAUTDTL1'</code>) are hard-coded literals, meaning the program is tightly bound to these specific IMS segment names; any DBD/segment renaming requires a source code change and recompile.</p>
+</li>
+<li>
+<p><strong>No CICS or SQL involved</strong>: This is a pure batch DL/I program (uses <code>CBLTDLI</code> calls only), consistent with the extracted facts showing no CICS commands and no SQL tables.</p>
+</li>
+<li>
+<p><strong>Verbose debug output is fully commented out</strong>: Numerous <code>DISPLAY</code> statements showing PCB status, segment names, and levels after each IMS call are commented out throughout <code>2000-FIND-NEXT-AUTH-SUMMARY</code>, <code>3000-FIND-NEXT-AUTH-DTL</code>, <code>3100-INSERT-PARENT-SEG-GSAM</code>, and <code>3200-INSERT-CHILD-SEG-GSAM</code>. Only error-path displays remain active, which may make problem diagnosis harder in production without re-enabling this commented debug code.</p>
+</li>
+<li>
+<p><strong><code>FAILED</code>/dynamic calls</strong>: The parser lists a call to <code>FAILED</code> in addition to <code>CBLTDLI</code>; this is not visible as an explicit <code>CALL 'FAILED'</code> in the shown source and may reflect an IMS status-check macro/copybook expansion (e.g., inside <code>IMSFUNCS</code>) rather than a directly callable subprogram — this should be verified against the <code>IMSFUNCS</code> copybook source, which was not provided.</p>
+</li>
+</ul>
 <h2 id="copybooks">Copybooks</h2>
 <p><code>CIPAUDTY</code>, <code>CIPAUSMY</code>, <code>IMSFUNCS</code>, <code>PADFLPCB</code>, <code>PASFLPCB</code>, <code>PAUTBPCB</code></p>
 <h2 id="calls">Calls</h2>

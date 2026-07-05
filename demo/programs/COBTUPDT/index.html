@@ -2233,24 +2233,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COBTUPDT
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2267,69 +2249,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#db2-tables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        DB2 tables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#db2-tables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        DB2 tables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,70 @@
 <h1 id="cobtupdt">COBTUPDT</h1>
 <p>Source: <code>app-transaction-type-db2/cbl/COBTUPDT.cbl</code></p>
 <p><strong>Type:</strong> Batch program (DB2)</p>
+<h1 id="cobtupdt-transaction-type-batch-update-program">COBTUPDT — Transaction Type Batch Update Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>COBTUPDT is a batch maintenance program that applies a set of add, update, and delete instructions to the <code>CARDDEMO.TRANSACTION_TYPE</code> reference table (transaction type codes and their descriptions). It reads a sequential control file where each record specifies an action code and the transaction type data, then makes the corresponding change directly against the DB2 table. This is essentially a bulk-load/maintenance utility for keeping the transaction type lookup table in sync, likely run outside of the online CICS system (no CICS commands are present).</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>0001-OPEN-FILES</strong> opens the input file <code>TR-RECORD</code> (DD <code>INPFILE</code>) and displays whether the open succeeded, based on the file status code — but does not stop processing if the open fails.</li>
+<li><strong>1001-READ-NEXT-RECORDS</strong> is the main driver: it performs an initial read (<strong>1002-READ-RECORDS</strong>), then loops <code>PERFORM UNTIL LASTREC = 'Y'</code>, alternating between processing the current record (<strong>1003-TREAT-RECORD</strong>) and reading the next one, until end-of-file is reached. It then performs <strong>2001-CLOSE-STOP</strong> to close the file, exits the paragraph, and falls through to <code>STOP RUN</code>.</li>
+<li><strong>1002-READ-RECORDS</strong> reads the next record from the input file into <code>WS-INPUT-REC</code>. On end-of-file it sets <code>LASTREC</code> to <code>'Y'</code>; otherwise it displays the record being processed.</li>
+<li><strong>1003-TREAT-RECORD</strong> examines <code>INPUT-REC-TYPE</code> (first character of the record) and branches:</li>
+<li><code>'A'</code> → <strong>10031-INSERT-DB</strong> (insert a new transaction type row)</li>
+<li><code>'U'</code> → <strong>10032-UPDATE-DB</strong> (update the description for an existing type)</li>
+<li><code>'D'</code> → <strong>10033-DELETE-DB</strong> (delete a transaction type row)</li>
+<li><code>'*'</code> → treated as a comment line and ignored</li>
+<li>any other value → builds an error message and calls <strong>9999-ABEND</strong></li>
+<li>Each of the three DB paragraphs issues its SQL statement, captures <code>SQLCODE</code>, and evaluates the result:</li>
+<li><code>SQLCODE = 0</code> → success message displayed</li>
+<li><code>SQLCODE = +100</code> (update/delete only) → "No records found" message, then <strong>9999-ABEND</strong></li>
+<li><code>SQLCODE &lt; 0</code> → builds an "Error accessing... SQLCODE:" message, then <strong>9999-ABEND</strong></li>
+<li><strong>9999-ABEND</strong> displays the accumulated error message and sets <code>RETURN-CODE</code> to 4 — but does <strong>not</strong> stop the program or the read loop (see Things to know).</li>
+<li><strong>2001-CLOSE-STOP</strong> closes the input file at end-of-job.</li>
+</ol>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TR-RECORD</code> (DD <code>INPFILE</code>)</td>
+<td>Sequential input file</td>
+<td>Fixed-format control records: 1-byte action type (<code>A</code>/<code>U</code>/<code>D</code>/<code>*</code>), 2-byte transaction type code, 50-byte description. Read via <code>READ ... NEXT RECORD INTO WS-INPUT-REC</code>.</td>
+</tr>
+<tr>
+<td><code>CARDDEMO.TRANSACTION_TYPE</code> (referenced as <code>CARDDEMO.TRANSACTION</code> in extracted table list, actual table name in SQL is <code>TRANSACTION_TYPE</code>)</td>
+<td>DB2 table</td>
+<td>Target of INSERT (<code>10031-INSERT-DB</code>), UPDATE (<code>10032-UPDATE-DB</code>), and DELETE (<code>10033-DELETE-DB</code>) operations, keyed by <code>TR_TYPE</code>, with column <code>TR_DESCRIPTION</code> updated/inserted from the input record.</td>
+</tr>
+<tr>
+<td><code>SQLCA</code> / <code>DCLTRTYP</code> (copybooks via <code>EXEC SQL INCLUDE</code>)</td>
+<td>Working storage</td>
+<td>Standard SQL communication area and the table's host-variable declaration; not listed under <code>copybooks</code> in the parser output, only visible in source as <code>INCLUDE SQLCA</code> / <code>INCLUDE DCLTRTYP</code>.</td>
+</tr>
+<tr>
+<td>Console / SYSOUT</td>
+<td>Output</td>
+<td><code>DISPLAY</code> statements report file-open status, each record being processed, per-row success/failure, and any abend message. No formal report file is produced.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>9999-ABEND does not actually abend or stop the run.</strong> It only displays the message and sets <code>RETURN-CODE</code> to 4 — the main read/process loop (<code>1001-READ-NEXT-RECORDS</code>) continues to the next record regardless of a prior error. Anyone relying on this program to halt on bad data will be surprised: it keeps going and simply leaves a non-zero return code at the end.</li>
+<li><strong>File-open failure is not fatal either.</strong> <code>0001-OPEN-FILES</code> only displays <code>'OPEN FILE NOT OK'</code> if the status isn't <code>'00'</code>; there's no branch to stop processing, so a failed open would likely lead to read errors or an empty/garbage loop rather than a clean abort.</li>
+<li><strong><code>INPUT-REC-TYPE</code> validation is minimal.</strong> Any character other than <code>A</code>, <code>U</code>, <code>D</code>, or <code>*</code> triggers the generic "TYPE NOT VALID" error path (via <code>9999-ABEND</code>), but again does not stop the batch — it just logs and moves on.</li>
+<li><strong>Hard-coded return code of 4</strong> is used for all error conditions (bad type, SQL negative code, "no records found" on update/delete) — the return code doesn't distinguish between these different failure types.</li>
+<li><strong>Comment/skip convention</strong>: a record type of <code>'*'</code> is treated as a commented-out/ignored line, a convention embedded only in this program's logic — worth documenting for anyone preparing input files.</li>
+<li><strong>No rollback/commit logic is visible</strong> in this excerpt — there's no explicit <code>COMMIT</code> or <code>ROLLBACK</code> shown, so transaction boundary behavior (autocommit vs. explicit) depends on the DB2 subsystem/job setup, not shown in this program.</li>
+<li><strong>Table name discrepancy</strong>: the parser's extracted <code>sql_tables</code> list shows <code>CARDDEMO.TRANSACTION</code> three times, but the actual SQL statements in source reference <code>CARDDEMO.TRANSACTION_TYPE</code>. Documentation/tooling consumers should be aware the extracted table name may be truncated/inaccurate.</li>
+<li><strong>Duplicate copies of the field name</strong> — the FD defines <code>WS-INPUT-VARS</code> (with <code>INPUT-TYPE</code>, <code>INPUT-TR-NUMBER</code>, <code>INPUT-TR-DESC</code>) but the actual read target and SQL host variables use a separately-declared <code>WS-INPUT-REC</code> (<code>INPUT-REC-TYPE</code>, <code>INPUT-REC-NUMBER</code>, <code>INPUT-REC-DESC</code>) in Working-Storage. The FD-level <code>WS-INPUT-VARS</code> fields appear unused; this duplication could be confusing during maintenance.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

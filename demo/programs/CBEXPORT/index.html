@@ -1841,24 +1841,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBEXPORT
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1875,91 +1857,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3057,80 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#executed-by" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Executed by
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3149,6 +2972,112 @@
 <h1 id="cbexport">CBEXPORT</h1>
 <p>Source: <code>cbl/CBEXPORT.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbexport-customer-data-export-for-branch-migration">CBEXPORT — Customer Data Export for Branch Migration</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBEXPORT is a batch COBOL program that extracts customer, account, cross-reference, transaction, and card data from CardDemo's normalized VSAM files and writes them into a single, flat "multi-record" export file. This file is intended to support branch migration efforts, where a downstream system or process ingests a consolidated feed of customer data. The output uses a common record layout with a type code so that different entity types can share one physical file.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>0000-MAIN-PROCESSING</code>, which runs each stage in sequence and then ends with <code>GOBACK</code>:</p>
+<ol>
+<li><strong><code>1000-INITIALIZE</code></strong></li>
+<li>Calls <code>1050-GENERATE-TIMESTAMP</code> to capture the current date/time via <code>ACCEPT ... FROM DATE YYYYMMDD</code> and <code>ACCEPT ... FROM TIME</code>, then builds three derived fields: <code>WS-EXPORT-DATE</code> (YYYY-MM-DD), <code>WS-EXPORT-TIME</code> (HH:MM:SS), and a 26-character <code>WS-FORMATTED-TIMESTAMP</code> (<code>date time.00</code>) used as the timestamp stamped on every export record.</li>
+<li>
+<p>Calls <code>1100-OPEN-FILES</code> to open all five input files and the output file. Any non-zero file status on open triggers <code>9999-ABEND-PROGRAM</code>.</p>
+</li>
+<li>
+<p><strong><code>2000-EXPORT-CUSTOMERS</code></strong> — reads <code>CUSTOMER-INPUT</code> sequentially (<code>2100-READ-CUSTOMER-RECORD</code>), and for each record calls <code>2200-CREATE-CUSTOMER-EXP-REC</code>, which builds an export record (type <code>'C'</code>) and writes it out. Loop continues <code>UNTIL WS-CUSTOMER-EOF</code>.</p>
+</li>
+<li>
+<p><strong><code>3000-EXPORT-ACCOUNTS</code></strong> — same read/build/write pattern for <code>ACCOUNT-INPUT</code>, producing type <code>'A'</code> records via <code>3200-CREATE-ACCOUNT-EXP-REC</code>.</p>
+</li>
+<li>
+<p><strong><code>4000-EXPORT-XREFS</code></strong> — same pattern for <code>XREF-INPUT</code>, producing type <code>'X'</code> records via <code>4200-CREATE-XREF-EXPORT-RECORD</code>.</p>
+</li>
+<li>
+<p><strong><code>5000-EXPORT-TRANSACTIONS</code></strong> — same pattern for <code>TRANSACTION-INPUT</code>, producing type <code>'T'</code> records via <code>5200-CREATE-TRAN-EXP-REC</code>.</p>
+</li>
+<li>
+<p><strong><code>5500-EXPORT-CARDS</code></strong> — same pattern for <code>CARD-INPUT</code>, producing type <code>'D'</code> records via <code>5700-CREATE-CARD-EXPORT-RECORD</code>.</p>
+</li>
+<li>
+<p><strong><code>6000-FINALIZE</code></strong> — closes all six files and displays final counts for each record type plus a grand total.</p>
+</li>
+</ol>
+<p>Each of the five "create export record" paragraphs follows an identical pattern: <code>INITIALIZE EXPORT-RECORD</code>, set the record type code, stamp the timestamp, increment and assign a global sequence number (<code>WS-SEQUENCE-COUNTER</code> → <code>EXPORT-SEQUENCE-NUM</code>), hard-code branch/region values, map source fields into the export layout, <code>WRITE</code> the record, check the write status (abend on failure), and bump both the entity-specific and total counters.</p>
+<p>Any file read or write error (status not <code>'00'</code>, and for reads not <code>'10'</code>/EOF either) causes an immediate call to <code>9999-ABEND-PROGRAM</code>, which displays a message and invokes <code>CALL 'CEE3ABD'</code> (a LE abend routine) — there is no recovery or retry logic anywhere in the program.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / DD</th>
+<th>Select name</th>
+<th>Copybook</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CUSTFILE</td>
+<td>CUSTOMER-INPUT</td>
+<td>CVCUS01Y</td>
+<td>Indexed input of customer profile records (keyed on <code>CUST-ID</code>), read sequentially, source for type <code>'C'</code> export records</td>
+</tr>
+<tr>
+<td>ACCTFILE</td>
+<td>ACCOUNT-INPUT</td>
+<td>CVACT01Y</td>
+<td>Indexed input of account records (keyed on <code>ACCT-ID</code>), source for type <code>'A'</code> export records</td>
+</tr>
+<tr>
+<td>XREFFILE</td>
+<td>XREF-INPUT</td>
+<td>CVACT03Y</td>
+<td>Indexed input of card/customer/account cross-reference records (keyed on <code>XREF-CARD-NUM</code>), source for type <code>'X'</code> export records</td>
+</tr>
+<tr>
+<td>TRANSACT</td>
+<td>TRANSACTION-INPUT</td>
+<td>CVTRA05Y</td>
+<td>Indexed input of transaction records (keyed on <code>TRAN-ID</code>), source for type <code>'T'</code> export records</td>
+</tr>
+<tr>
+<td>CARDFILE</td>
+<td>CARD-INPUT</td>
+<td>CVACT02Y</td>
+<td>Indexed input of card records (keyed on <code>CARD-NUM</code>), source for type <code>'D'</code> export records</td>
+</tr>
+<tr>
+<td>EXPFILE</td>
+<td>EXPORT-OUTPUT</td>
+<td>CVEXPORT (via <code>EXPORT-RECORD</code>)</td>
+<td>Indexed output, fixed 500-byte records, keyed on <code>EXPORT-SEQUENCE-NUM</code>; holds all five record types interleaved by processing order (all customers, then all accounts, then xrefs, then transactions, then cards)</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables or CICS commands are involved — this is a straight batch, file-to-file COBOL program (confirmed by the empty <code>cics_commands</code>/<code>sql_tables</code> lists). It is executed as <code>CBEXPORT.STEP02</code> in its batch job.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li>
+<p><strong>All five inputs are declared <code>ORGANIZATION IS INDEXED</code>, <code>ACCESS MODE IS SEQUENTIAL</code>.</strong> The program reads each file straight through in physical/key sequence with plain <code>READ</code> statements — there's no keyed random access or join logic. Records across files are <strong>not correlated to each other</strong> during export; customers, accounts, xrefs, transactions, and cards are each read and written independently in their own pass, so the resulting export file just concatenates five separate record streams by type, not a per-customer bundled record.</p>
+</li>
+<li>
+<p><strong>Hard-coded values</strong>: Every export record sets <code>EXPORT-BRANCH-ID</code> to <code>'0001'</code> and <code>EXPORT-REGION-CODE</code> to <code>'NORTH'</code>, regardless of the actual customer/account data. This strongly suggests a single-branch/region assumption baked into the code — worth flagging if this program is ever used for multi-branch data.</p>
+</li>
+<li>
+<p><strong>Global sequence counter</strong>: <code>WS-SEQUENCE-COUNTER</code> is a single counter (<code>PIC 9(09)</code>) incremented across <em>all</em> record types and used as the <code>EXPORT-SEQUENCE-NUM</code> (the output file's record key). Since output is <code>ORGANIZATION IS INDEXED</code> keyed on this field, and the field is assigned sequentially, duplicate key errors are unlikely under normal operation, but there's no explicit duplicate-key handling shown.</p>
+</li>
+<li>
+<p><strong>Fail-fast error handling</strong>: Every file open, read, and write operation checks its FILE STATUS field. Any unexpected status (not <code>'00'</code> for OK, not <code>'10'</code> for EOF where applicable) results in a <code>DISPLAY</code> of the error and an immediate hard abend via <code>CALL 'CEE3ABD'</code> in <code>9999-ABEND-PROGRAM</code>. There is no partial-output cleanup, rollback, or restart/checkpoint logic — a failure partway through leaves the export file incomplete.</p>
+</li>
+<li>
+<p><strong>Timestamp construction is manual, not using intrinsic functions.</strong> <code>1050-GENERATE-TIMESTAMP</code> builds date/time strings via <code>STRING</code> concatenation of numeric subfields; this assumes the numeric picture clauses always produce fixed-width zero-padded output, which should hold given the <code>PIC 9(0n)</code> definitions, but there's no explicit validation of the ACCEPT results.</p>
+</li>
+<li>
+<p><strong>No parameterization observed</strong>: branch ID, region code, and file assignment names are all fixed in the source. Any change to these values (e.g., supporting multiple branches or regions) would require a code change, not a configuration change.</p>
+</li>
+<li>
+<p><strong>Copybook <code>CVEXPORT</code></strong> defines the <code>EXPORT-RECORD</code> structure shared by all five record-creation paragraphs; its exact layout wasn't included in the source provided, so field sizes/subscripts (e.g., <code>EXP-CUST-ADDR-LINE(1..3)</code>, <code>EXP-CUST-PHONE-NUM(1..2)</code>) are assumed correct per copybook but not independently verified here.</p>
+</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>

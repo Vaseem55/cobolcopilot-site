@@ -2597,24 +2597,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    COTRN01C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2631,69 +2613,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3035,58 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#cics-commands" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CICS commands
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3105,6 +2972,69 @@
 <h1 id="cotrn01c">COTRN01C</h1>
 <p>Source: <code>cbl/COTRN01C.cbl</code></p>
 <p><strong>Type:</strong> CICS transaction program</p>
+<h1 id="cotrn01c-transaction-view-program">COTRN01C — Transaction View Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>This is a CICS COBOL screen program from the CardDemo application that lets a user look up and view the details of a single credit card transaction by its Transaction ID. It displays transaction fields such as amount, type, category, source, description, timestamps, and merchant information on a formatted terminal screen (COTRN1A map). It is a read-only inquiry screen — no updates to the transaction are made even though the underlying read uses <code>UPDATE</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>Processing is driven by <code>MAIN-PARA</code>, which behaves differently depending on whether the program is being entered fresh or re-entered after a user action:</p>
+<ul>
+<li><strong>First entry</strong> (<code>EIBCALEN = 0</code>): there is no commarea, so the program treats this as an invalid direct invocation and immediately routes back to the sign-on screen (<code>COSGN00C</code>) via <code>RETURN-TO-PREV-SCREEN</code>.</li>
+<li><strong>Entry with a commarea, not yet "re-entered"</strong>: the incoming commarea is loaded into <code>CARDDEMO-COMMAREA</code>. If a transaction ID was already selected (passed in from a prior screen, e.g. a transaction list), it's moved into the input field and <code>PROCESS-ENTER-KEY</code> is performed automatically to look it up. Otherwise the blank screen is simply displayed via <code>SEND-TRNVIEW-SCREEN</code>.</li>
+<li><strong>Subsequent re-entry</strong> (user pressed a key on the displayed screen): <code>RECEIVE-TRNVIEW-SCREEN</code> reads the user's screen input, then <code>EIBAID</code> (the key pressed) is evaluated:</li>
+<li><strong>Enter</strong> → <code>PROCESS-ENTER-KEY</code> — validates the entered Transaction ID and looks it up.</li>
+<li><strong>PF3</strong> → returns to the previous program (<code>CDEMO-FROM-PROGRAM</code>, or <code>COMEN01C</code> if none is set) via <code>RETURN-TO-PREV-SCREEN</code>.</li>
+<li><strong>PF4</strong> → <code>CLEAR-CURRENT-SCREEN</code> — blanks all screen fields and redisplays.</li>
+<li><strong>PF5</strong> → navigates to <code>COTRN00C</code> (transaction list) via <code>RETURN-TO-PREV-SCREEN</code>.</li>
+<li><strong>Any other key</strong> → sets an error flag, shows an "invalid key" message, and redisplays the screen.</li>
+</ul>
+<p><code>PROCESS-ENTER-KEY</code> validates that a Transaction ID was entered (rejecting blanks/low-values with an error message and cursor positioning), then calls <code>READ-TRANSACT-FILE</code> to fetch the record and populates all the output fields on the map before performing <code>SEND-TRNVIEW-SCREEN</code>.</p>
+<p><code>READ-TRANSACT-FILE</code> issues a CICS <code>READ</code> against the <code>TRANSACT</code> dataset keyed by Transaction ID and handles three response cases: normal (continue), not found (error message + redisplay), and any other CICS error (generic error message, response/reason codes written to console via <code>DISPLAY</code>, + redisplay).</p>
+<p><code>SEND-TRNVIEW-SCREEN</code> always performs <code>POPULATE-HEADER-INFO</code> first (which stamps the screen with titles, program name, and the current date/time from <code>FUNCTION CURRENT-DATE</code>) before sending the map to the terminal.</p>
+<p>At the end of <code>MAIN-PARA</code>, control always returns to CICS with <code>EXEC CICS RETURN TRANSID(WS-TRANID) COMMAREA(CARDDEMO-COMMAREA)</code>, keeping the transaction "pseudo-conversational" for the next user interaction.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TRANSACT</code> (via <code>WS-TRANSACT-FILE</code>)</td>
+<td>CICS-managed dataset</td>
+<td>Read (with <code>UPDATE</code> option) by Transaction ID to retrieve transaction details for display. No write/rewrite is performed in this program.</td>
+</tr>
+<tr>
+<td><code>DFHCOMMAREA</code></td>
+<td>CICS commarea</td>
+<td>Carries <code>CARDDEMO-COMMAREA</code> (via copybook <code>COCOM01Y</code>) between program invocations — tracks reentry state, from/to program routing, and a possibly pre-selected transaction ID (<code>CDEMO-CT01-TRN-SELECTED</code>).</td>
+</tr>
+<tr>
+<td><code>COTRN1A</code> map (mapset <code>COTRN01</code>)</td>
+<td>CICS BMS screen</td>
+<td>Displayed via <code>SEND</code> (formats: transaction ID input, transaction details, merchant info, header/date/time, error message) and read via <code>RECEIVE</code> (captures user's typed Transaction ID and key pressed).</td>
+</tr>
+<tr>
+<td>Copybooks: <code>COCOM01Y</code>, <code>COTRN01</code>, <code>COTTL01Y</code>, <code>CSDAT01Y</code>, <code>CSMSG01Y</code>, <code>CVTRA05Y</code>, <code>DFHAID</code>, <code>DFHBMSCA</code></td>
+<td>Data structures</td>
+<td>Provide the commarea layout, screen (map) layout, title/date/message constants, transaction record layout (<code>TRAN-RECORD</code>/<code>TRAN-ID</code> etc. from <code>CVTRA05Y</code>), and CICS AID/attribute constants.</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables are used (parser confirms <code>sql_tables: []</code>) — this program is file/CICS-based, not DB2-based.</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong><code>READ ... UPDATE</code> without a rewrite</strong>: The transaction read is issued with the <code>UPDATE</code> option, which normally implies intent to modify the record, but this program never performs a <code>REWRITE</code> or <code>UNLOCK</code>. This holds an exclusive lock on the record until the CICS task ends (or a subsequent transaction on the same task explicitly releases it), which is unusual for a pure "view" program and could cause contention if reused as a pattern.</li>
+<li><strong>Error handling is message-based, not exception-based</strong>: <code>READ-TRANSACT-FILE</code> checks <code>WS-RESP-CD</code> against <code>DFHRESP(NORMAL)</code>/<code>DFHRESP(NOTFND)</code>/other, using CICS <code>RESP</code>/<code>RESP2</code> — no abend on failure. Unexpected errors are only logged via <code>DISPLAY</code> (visible in CICS console/log, not to the user beyond a generic message).</li>
+<li><strong>Hard-coded values</strong>: transaction ID <code>WS-TRANID = 'CT01'</code>, program name <code>WS-PGMNAME = 'COTRN01C'</code>, dataset name <code>WS-TRANSACT-FILE = 'TRANSACT'</code>, and default fallback programs <code>'COSGN00C'</code> (sign-on), <code>'COMEN01C'</code> (menu), and <code>'COTRN00C'</code> (transaction list) are all embedded directly in code rather than configured externally.</li>
+<li><strong>Reentry logic relies on <code>CDEMO-PGM-REENTER</code> flag</strong>: this flag (part of the commarea, from <code>COCOM01Y</code>) distinguishes a fresh call from a pseudo-conversational continuation. If this flag or the commarea structure is corrupted/mismatched between programs, the flow could misbehave (e.g., skip the initial screen population).</li>
+<li><strong>Cursor positioning via <code>-1</code> length trick</strong>: Several paragraphs set <code>TRNIDINL OF COTRN1AI</code> to <code>-1</code> to force the cursor to the Transaction ID field on redisplay — a standard BMS/CICS convention but easy to misread as a plain data assignment.</li>
+<li><strong>No SQL/DB2 usage</strong>: unlike other CardDemo programs that use DB2, this one relies purely on a CICS VSAM-style file (<code>TRANSACT</code>) accessed via <code>EXEC CICS READ</code>.</li>
+<li><strong><code>WS-TRAN-DATE</code> field declared but appears unused</strong> in the shown procedure logic — worth confirming whether it's referenced elsewhere (e.g., in a copybook-driven MOVE) or is dead code.</li>
+<li><strong>Only three navigation targets are hard-wired</strong> (PF3/PF4/PF5) plus Enter; any other key is treated uniformly as invalid input, regardless of CICS AID meaning.</li>
+</ul>
 <h2 id="cics-commands">CICS commands</h2>
 <p><code>RETURN</code>, <code>SEND</code>, <code>RECEIVE</code>, <code>READ</code></p>
 <h2 id="copybooks">Copybooks</h2>

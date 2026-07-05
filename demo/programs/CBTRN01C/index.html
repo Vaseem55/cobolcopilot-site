@@ -1981,24 +1981,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CBTRN01C
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2015,80 +1997,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3046,69 +2954,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#files" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Files
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#copybooks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Copybooks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Calls
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraph-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraph flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#paragraphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Paragraphs
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -3127,6 +2972,76 @@
 <h1 id="cbtrn01c">CBTRN01C</h1>
 <p>Source: <code>cbl/CBTRN01C.cbl</code></p>
 <p><strong>Type:</strong> Batch program</p>
+<h1 id="cbtrn01c-daily-transaction-postingvalidation-program">CBTRN01C — Daily Transaction Posting/Validation Program</h1>
+<h2 id="purpose">Purpose</h2>
+<p>CBTRN01C is a batch COBOL program from the CardDemo application that reads a daily transaction file and validates each transaction against the card cross-reference and account master files. For every transaction it looks up the card number in the cross-reference file to find the associated account, then confirms that account exists in the account master. It does not appear to actually post/update any records (despite the header comment "Post the records from daily transaction file") — as written, it only reads, validates, and displays results; no records are written or rewritten.</p>
+<h2 id="how-it-works">How it works</h2>
+<ol>
+<li><strong>MAIN-PARA</strong> displays a start message, then opens all six files in sequence via <code>0000-DALYTRAN-OPEN</code> through <code>0500-TRANFILE-OPEN</code>.</li>
+<li>It then loops (<code>PERFORM UNTIL END-OF-DAILY-TRANS-FILE = 'Y'</code>):</li>
+<li><strong>1000-DALYTRAN-GET-NEXT</strong> reads the next record from the daily transaction file. A file status of <code>'10'</code> sets the end-of-file flag; any other non-<code>'00'</code> status triggers an abend.</li>
+<li>If a record was read, it is displayed (<code>DISPLAY DALYTRAN-RECORD</code>).</li>
+<li>The card number from the transaction is moved to the XREF key and <strong>2000-LOOKUP-XREF</strong> does a keyed random read of the cross-reference file. Success or failure (invalid key) is tracked in <code>WS-XREF-READ-STATUS</code>.</li>
+<li>If the XREF lookup succeeded, the resolved account ID is moved to the account key and <strong>3000-READ-ACCOUNT</strong> does a keyed random read of the account master file. If not found, a message is displayed (<code>ACCOUNT &lt;id&gt; NOT FOUND</code>).</li>
+<li>If the XREF lookup failed, a message is displayed and the transaction is skipped (<code>CARD NUMBER ... COULD NOT BE VERIFIED. SKIPPING TRANSACTION ID-...</code>).</li>
+<li>After the loop ends, all files are closed via <code>9000-DALYTRAN-CLOSE</code> through <code>9500-TRANFILE-CLOSE</code>, and an end-of-execution message is displayed before <code>GOBACK</code>.</li>
+<li>Every open/read/close operation checks its file status and, on unexpected errors, calls <strong>Z-DISPLAY-IO-STATUS</strong> (formats and displays the status code) followed by <strong>Z-ABEND-PROGRAM</strong>, which invokes the <code>CEE3ABD</code> language-environment abend service with a fixed abend code of 999.</li>
+</ol>
+<p>Note: the <strong>CARD-FILE</strong> (CARDFILE) and <strong>TRANSACT-FILE</strong> (TRANFILE) are opened and closed but are never read or written anywhere in the procedure logic shown — they appear unused in this program's processing flow.</p>
+<h2 id="inputs-outputs">Inputs &amp; outputs</h2>
+<table>
+<thead>
+<tr>
+<th>File / DD</th>
+<th>Access</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DALYTRAN-FILE</strong> (DD <code>DALYTRAN</code>)</td>
+<td>Sequential, input</td>
+<td>Daily transaction input; read one record at a time (<code>FD-TRAN-RECORD</code> — 16-byte transaction ID + 334-byte data, mapped via copybook <code>CVTRA06Y</code> structure <code>DALYTRAN-RECORD</code>).</td>
+</tr>
+<tr>
+<td><strong>XREF-FILE</strong> (DD <code>XREFFILE</code>)</td>
+<td>Indexed, random, input</td>
+<td>Card-to-account/customer cross-reference; keyed read by <code>FD-XREF-CARD-NUM</code> (copybook <code>CVACT03Y</code>) to resolve <code>XREF-ACCT-ID</code> and <code>XREF-CUST-ID</code> from the card number.</td>
+</tr>
+<tr>
+<td><strong>ACCOUNT-FILE</strong> (DD <code>ACCTFILE</code>)</td>
+<td>Indexed, random, input</td>
+<td>Account master; keyed read by <code>FD-ACCT-ID</code> (copybook <code>CVACT01Y</code>) to validate that the account resolved from XREF actually exists.</td>
+</tr>
+<tr>
+<td><strong>CUSTOMER-FILE</strong> (DD <code>CUSTFILE</code>)</td>
+<td>Indexed, random, input</td>
+<td>Opened/closed only; copybook <code>CVCUS01Y</code> defines its layout, but no read is performed in the procedure logic.</td>
+</tr>
+<tr>
+<td><strong>CARD-FILE</strong> (DD <code>CARDFILE</code>)</td>
+<td>Indexed, random, input</td>
+<td>Opened/closed only (copybook <code>CVACT02Y</code>); not read/used in this program's logic.</td>
+</tr>
+<tr>
+<td><strong>TRANSACT-FILE</strong> (DD <code>TRANFILE</code>)</td>
+<td>Indexed, random, input</td>
+<td>Opened/closed only (copybook <code>CVTRA05Y</code>); not read/used in this program's logic.</td>
+</tr>
+</tbody>
+</table>
+<p>No SQL tables and no CICS commands are used — this is a plain batch/QSAM+VSAM program. The only external call is to <code>CEE3ABD</code> (Language Environment abend routine).</p>
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+<li><strong>No actual update/posting logic</strong>: despite the program header stating "Post the records from daily transaction file," the code only reads and validates — there are no WRITE/REWRITE statements. If this program is meant to post transactions to the account/customer files, that logic is missing or handled elsewhere (possibly a later program in the CardDemo suite, e.g., CBTRN02C).</li>
+<li><strong>Unused files opened</strong>: CUSTOMER-FILE, CARD-FILE, and TRANSACT-FILE are opened and closed but never read. This could be leftover scaffolding, a template copied from another program, or files intended for future/other use — worth confirming with the file DD assignments in the JCL before assuming they're dead weight.</li>
+<li><strong>Hard-coded abend code</strong>: <code>Z-ABEND-PROGRAM</code> always sets <code>ABCODE</code> to <code>999</code> regardless of which file/operation failed — the actual failing file's status is displayed just before the abend (via <code>Z-DISPLAY-IO-STATUS</code>), so root cause must be found in the DISPLAY output/job log, not the abend code itself.</li>
+<li><strong>Close-error messages point to the wrong file</strong>: in <code>9000-DALYTRAN-CLOSE</code>, the error DISPLAY says <code>'ERROR CLOSING CUSTOMER FILE'</code> and moves <code>CUSTFILE-STATUS</code> (not <code>DALYTRAN-STATUS</code>) to <code>IO-STATUS</code> — this looks like a copy-paste bug, since the paragraph is closing DALYTRAN-FILE. Similarly, <code>9100-CUSTFILE-CLOSE</code> also displays <code>'ERROR CLOSING CUSTOMER FILE'</code> (which is correct there). Anyone debugging a DALYTRAN close failure should be aware the displayed message/status may be misleading.</li>
+<li><strong>File status handling</strong>: Only status <code>'00'</code> (success) and <code>'10'</code> (end-of-file, checked only for DALYTRAN reads) are treated as non-fatal; every other status on open/read/close causes an immediate abend via <code>CEE3ABD</code> — there is no retry or recovery logic.</li>
+<li><strong>APPL-RESULT initialization inconsistency</strong>: open paragraphs set <code>APPL-RESULT</code> via <code>MOVE 8</code>, while close paragraphs use <code>ADD 8 TO ZERO GIVING APPL-RESULT</code> — functionally equivalent but stylistically inconsistent, suggesting copy/paste across paragraphs without cleanup.</li>
+<li><strong>Skipped transactions are not logged to an output file</strong> — when a card can't be verified via XREF, or an account isn't found, the only trace is a DISPLAY statement (console/job log), with no reject file or return-code signaling for downstream monitoring.</li>
+<li><strong>Copybooks</strong>: record layouts for all six files and key working-storage fields come from copybooks <code>CVACT01Y</code>, <code>CVACT02Y</code>, <code>CVACT03Y</code>, <code>CVCUS01Y</code>, <code>CVTRA05Y</code>, <code>CVTRA06Y</code> — field-level detail (e.g., full transaction/account/customer layouts) is defined there, not in this source file.</li>
+</ul>
 <h2 id="files">Files</h2>
 <table>
 <thead>
