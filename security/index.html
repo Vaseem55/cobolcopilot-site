@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security — MainframeLore</title>
+<meta name="description" content="How MainframeLore handles your source code: no mainframe access, no network connection to your systems, deployment options for every security posture.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mainframelore.com/security/">
+<meta property="og:title" content="Security — MainframeLore">
+<meta property="og:description" content="How MainframeLore handles your source code: no mainframe access, deployment options for every security posture.">
+<meta property="og:image" content="https://mainframelore.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#090C11; --panel:#141A22; --panel2:#1A2230; --line:#25313F;
+  --amber:#E8A33D; --amber-dim:#8A6524;
+  --cyan:#4FE0D6; --cyan-dim:#1F6D67;
+  --slate:#8FA0AF; --bright:#EEF3F7;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 12% -10%, rgba(232,163,61,.10), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 90% 10%, rgba(79,224,214,.10), transparent 60%),
+    var(--ink);
+  background-attachment:fixed;
+  color:var(--slate);font-family:var(--sans);font-size:17px;line-height:1.65;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.4;
+  background-image:
+    linear-gradient(rgba(143,160,175,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143,160,175,.05) 1px, transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 70% 50% at 50% 0%, #000 20%, transparent 75%);
+}
+a{color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:900px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+h1,h2{font-family:var(--serif);color:var(--bright);font-weight:600;line-height:1.2}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);
+  display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px 1px var(--amber)}
+nav{display:flex;justify-content:space-between;align-items:center;padding:18px 0;position:sticky;top:0;z-index:20;
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  background:rgba(9,12,17,.62);border-bottom:1px solid rgba(37,49,63,.7)}
+nav .wrap{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:900px;padding:0 24px}
+.logo{font-family:var(--mono);font-weight:500;color:var(--bright);font-size:1rem}
+.logo b{color:var(--amber);text-shadow:0 0 10px rgba(232,163,61,.6)}
+nav a.back{color:var(--slate);font-size:.9rem;text-decoration:none}
+nav a.back:hover{color:var(--cyan)}
+header{padding:70px 0 20px}
+header h1{font-size:clamp(2rem,4vw,2.7rem);margin-bottom:14px}
+header p{max-width:640px;font-size:1.08rem}
+section{padding:50px 0;border-top:1px solid var(--line)}
+section h2{font-size:1.5rem;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:28px 30px;margin-top:20px;
+  box-shadow:0 20px 50px -30px rgba(0,0,0,.6)}
+.card h3{font-family:var(--serif);color:var(--bright);font-size:1.15rem;margin-bottom:10px}
+.card p{font-size:.98rem;color:var(--slate)}
+ul.checks{list-style:none;margin-top:6px}
+ul.checks li{padding-left:24px;position:relative;margin-bottom:12px;font-size:.98rem}
+ul.checks li::before{content:"▸";position:absolute;left:0;color:var(--cyan)}
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.94rem}
+th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);font-weight:500}
+td:first-child{color:var(--bright);font-family:var(--mono);font-size:.88rem}
+.faq details{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 20px;margin-bottom:12px}
+.faq summary{font-family:var(--serif);color:var(--bright);font-size:1.02rem;cursor:pointer;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:"+ ";color:var(--amber);font-family:var(--mono)}
+.faq details[open] summary::before{content:"− "}
+.faq p{margin-top:10px;font-size:.95rem}
+.cta{text-align:center;padding:60px 0}
+.btn{display:inline-block;background:var(--amber);color:var(--ink);font-family:var(--mono);font-size:.92rem;
+  padding:13px 24px;border-radius:6px;font-weight:500;text-decoration:none;
+  box-shadow:0 0 0 1px rgba(232,163,61,.4),0 4px 20px -4px rgba(232,163,61,.5)}
+footer{border-top:1px solid var(--line);padding:30px 0;font-size:.82rem;color:#5c6b79;font-family:var(--mono);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+@media (max-width:700px){ section{padding:36px 0} header{padding:50px 0 10px} }
+</style>
+</head>
+<body>
+<nav>
+<div class="wrap">
+  <span class="logo"><b>//</b>MAINFRAME·LORE</span>
+  <a class="back" href="../">← Back to site</a>
+</div>
+</nav>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Security</p>
+  <h1>Designed for people whose job is to say no</h1>
+  <p>MainframeLore was built for banks, insurers, and government mainframe shops — the most security-conscious
+  buyers there are. Here's exactly what happens to your source code, what deployment options exist, and what
+  we don't do.</p>
+</header>
+</div>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">The core guarantee</p>
+  <h2>No mainframe access, ever — under any tier</h2>
+  <div class="card">
+    <h3>How analysis actually happens</h3>
+    <p>You export your COBOL, copybooks, and JCL — the same PDS export you already produce for source control,
+    audits, or vendor reviews. That export is the only input. There is no agent installed on z/OS, no CICS
+    transaction, no network path opened into your mainframe, and no credentials of any kind requested for
+    your systems. The tool reads files; it does not connect to anything.</p>
+  </div>
+</div>
+</section>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">Deployment options</p>
+  <h2>Pick the posture that matches your risk tolerance</h2>
+  <table>
+    <tr><th>Tier</th><th>Where processing happens</th><th>Where your source lives</th></tr>
+    <tr><td>Assess</td><td>Hosted, one-time run</td><td>Deleted after the report is delivered</td></tr>
+    <tr><td>Team</td><td>Hosted, continuous</td><td>Retained only to re-run docs on new drops; deletable on request</td></tr>
+    <tr><td>Enterprise</td><td>Inside your own network (container)</td><td>Never leaves your infrastructure</td></tr>
+  </table>
+</div>
+</section>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">AI and your data</p>
+  <h2>What touches an LLM, and what doesn't</h2>
+  <ul class="checks">
+    <li><b style="color:var(--bright)">Structural parsing is deterministic, not AI.</b> Programs, paragraphs, copybooks,
+    calls, JCL flow, and datasets are extracted by a parser — this never touches an external model.</li>
+    <li><b style="color:var(--bright)">AI writes prose only</b> — plain-English explanations layered on top of
+    parser-verified facts, sent to Claude (Anthropic) for generation. This is the only step that leaves your
+    environment on the hosted tiers.</li>
+    <li><b style="color:var(--bright)">Bring your own LLM key</b>, or route to a model in your own cloud account,
+    so the request never leaves infrastructure you control.</li>
+    <li><b style="color:var(--bright)">Analysis-only mode</b> is available with zero AI calls — you get the
+    structural facts, flowcharts, and dependency graph with no LLM involved at all.</li>
+  </ul>
+</div>
+</section>
+
+<section class="faq">
+<div class="wrap">
+  <p class="eyebrow">Common questions</p>
+  <h2>What security teams usually ask</h2>
+  <details>
+    <summary>Do you store our source code?</summary>
+    <p>On the Assess tier, no — it's deleted once your report is delivered. On Team, only what's needed to
+    re-run documentation on new source drops, and it's deletable on request. On Enterprise, never — everything
+    runs inside your own network.</p>
+  </details>
+  <details>
+    <summary>Does the AI model get trained on our code?</summary>
+    <p>No. Requests to Anthropic's API are not used to train models per Anthropic's API terms. If your policy
+    requires it, use the Enterprise tier with your own LLM deployment for a fully self-contained pipeline.</p>
+  </details>
+  <details>
+    <summary>Can this run fully offline / air-gapped?</summary>
+    <p>Yes, on the Enterprise tier — the parsing and analysis pipeline runs inside your network with no external
+    calls, and either a self-hosted LLM or the deterministic analysis-only mode replaces the hosted AI step.</p>
+  </details>
+  <details>
+    <summary>What if we can't share real production code at all?</summary>
+    <p>Start with a sanitized or representative program — the parser works identically on any valid COBOL/JCL.
+    Many customers validate output quality on a non-sensitive program before sending anything production-facing.</p>
+  </details>
+</div>
+</section>
+
+<div class="wrap cta">
+  <h2 style="margin-bottom:14px">Questions we haven't answered here?</h2>
+  <a class="btn" href="mailto:vaseemakrams55@gmail.com?subject=Security%20question">Ask directly</a>
+</div>
+
+<div class="wrap">
+<footer>
+  <span><b style="color:var(--amber)">//</b>MAINFRAME·LORE</span>
+  <span>PARSED, NOT GUESSED · EXPORT-BASED · YOU KEEP THE OUTPUT</span>
+</footer>
+</div>
+</body>
+</html>
