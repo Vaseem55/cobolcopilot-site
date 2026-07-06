@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try it on your own COBOL — MainframeLore</title>
+<meta name="description" content="Paste any COBOL program and watch it get parsed instantly — paragraphs, COPY, CALL, files, SQL, CICS — right in your browser, nothing uploaded, nothing sent anywhere.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mainframelore.com/try/">
+<meta property="og:title" content="Try it on your own COBOL — MainframeLore">
+<meta property="og:description" content="Paste any COBOL program and watch it get parsed instantly, right in your browser. Nothing uploaded.">
+<meta property="og:image" content="https://mainframelore.com/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#090C11; --panel:#141A22; --panel2:#1A2230; --line:#25313F;
+  --amber:#E8A33D; --amber-dim:#8A6524;
+  --cyan:#4FE0D6; --cyan-dim:#1F6D67;
+  --green:#7FB069;
+  --slate:#8FA0AF; --bright:#EEF3F7;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 12% -10%, rgba(232,163,61,.10), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 90% 10%, rgba(79,224,214,.10), transparent 60%),
+    var(--ink);
+  background-attachment:fixed;
+  color:var(--slate);font-family:var(--sans);font-size:16px;line-height:1.6;min-height:100vh;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.4;
+  background-image:
+    linear-gradient(rgba(143,160,175,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143,160,175,.05) 1px, transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 70% 50% at 50% 0%, #000 20%, transparent 75%);
+}
+a{color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+nav{display:flex;justify-content:space-between;align-items:center;padding:16px 0;position:sticky;top:0;z-index:20;
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  background:rgba(9,12,17,.62);border-bottom:1px solid rgba(37,49,63,.7)}
+nav .inner{display:flex;justify-content:space-between;align-items:center;max-width:1100px;margin:0 auto;padding:0 24px}
+.logo{font-family:var(--mono);color:var(--bright);font-size:1rem}
+.logo b{color:var(--amber);text-shadow:0 0 10px rgba(232,163,61,.6)}
+nav a.back{color:var(--slate);font-size:.9rem;text-decoration:none}
+nav a.back:hover{color:var(--cyan)}
+
+header{padding:44px 0 6px}
+.eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);
+  display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px 1px var(--amber)}
+h1{font-family:var(--serif);color:var(--bright);font-size:2rem;margin-bottom:10px;font-weight:600}
+header p{max-width:680px;font-size:1.02rem}
+header p b{color:var(--cyan)}
+
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.6)}
+.panel-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel-head span{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--slate)}
+textarea{width:100%;height:420px;background:#0C1119;color:var(--bright);border:none;resize:vertical;
+  font-family:var(--mono);font-size:.82rem;line-height:1.6;padding:16px;outline:none}
+textarea::placeholder{color:#4a5866}
+#sourceView{height:420px;overflow:auto;padding:16px;font-family:var(--mono);font-size:.82rem;line-height:1.6;
+  white-space:pre;background:#0C1119}
+#sourceView .tk-para{color:var(--amber);font-weight:600}
+#sourceView .tk-copy{color:var(--cyan)}
+#sourceView .tk-call{color:var(--green)}
+#sourceView .tk-kw{color:#7fa8d9}
+
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:center}
+button{font-family:var(--mono);font-size:.88rem;font-weight:500;border:none;border-radius:8px;
+  padding:12px 22px;cursor:pointer;transition:box-shadow .2s,transform .2s}
+#parseBtn{background:var(--amber);color:var(--ink);
+  box-shadow:0 0 0 1px rgba(232,163,61,.4),0 4px 20px -4px rgba(232,163,61,.5)}
+#parseBtn:hover{background:#f0b458;transform:translateY(-1px)}
+#sampleBtn,#clearBtn{background:transparent;color:var(--cyan);border:1px solid var(--cyan-dim)}
+#sampleBtn:hover,#clearBtn:hover{border-color:var(--cyan)}
+.hint{font-family:var(--mono);font-size:.78rem;color:#5c6b79;margin-left:auto}
+
+#facts{margin-top:26px}
+.fact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:14px}
+.fact-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;
+  box-shadow:0 20px 50px -30px rgba(0,0,0,.6)}
+.fact-card .tag{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan)}
+.fact-card .big{font-family:var(--serif);color:var(--bright);font-size:1.7rem;margin-top:6px}
+.fact-card ul{list-style:none;margin-top:10px}
+.fact-card li{font-family:var(--mono);font-size:.82rem;color:var(--slate);margin-bottom:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fact-card li b{color:var(--bright)}
+.empty-note{color:#5c6b79;font-size:.85rem;font-style:italic}
+
+.para-flow{margin-top:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.para-flow .tag{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);margin-bottom:10px;display:block}
+.para-row{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(37,49,63,.5);font-size:.85rem}
+.para-row:last-child{border-bottom:none}
+.para-row .pname{font-family:var(--mono);color:var(--amber);min-width:220px}
+.para-row .parrow{color:#5c6b79}
+.para-row .ptargets{font-family:var(--mono);color:var(--slate);font-size:.8rem}
+
+.cta{text-align:center;padding:60px 0 40px}
+.cta h2{font-family:var(--serif);color:var(--bright);font-size:1.6rem;margin-bottom:12px}
+.cta p{max-width:560px;margin:0 auto 22px}
+.btn{display:inline-block;background:var(--amber);color:var(--ink);font-family:var(--mono);font-size:.92rem;
+  padding:13px 24px;border-radius:8px;font-weight:500;text-decoration:none;
+  box-shadow:0 0 0 1px rgba(232,163,61,.4),0 4px 20px -4px rgba(232,163,61,.5)}
+
+footer{border-top:1px solid var(--line);padding:26px 0;font-size:.8rem;color:#5c6b79;font-family:var(--mono);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:20px}
+
+@media (max-width:860px){ .panels{grid-template-columns:1fr} textarea,#sourceView{height:280px} }
+</style>
+</head>
+<body>
+<nav><div class="inner">
+  <span class="logo"><b>//</b>MAINFRAME·LORE</span>
+  <a class="back" href="../">← Back to site</a>
+</div></nav>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Runs entirely in your browser</p>
+  <h1>Paste your own COBOL. See it parsed instantly.</h1>
+  <p>Nothing is uploaded. Nothing is sent to a server. This is the same structural extraction
+  <b>MainframeLore</b> runs on every program in an estate — paragraphs, PERFORM flow, COPY, CALL,
+  file assignments, SQL tables, CICS commands — running client-side, live, on whatever you paste below.</p>
+</header>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-head"><span>Paste COBOL source</span></div>
+    <textarea id="input" placeholder="Paste a COBOL program here — fixed or free format, any dialect...&#10;&#10;Or click &quot;Load a sample&quot; below to see it work on real code."></textarea>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><span>Highlighted structure</span></div>
+    <div id="sourceView">Paste code on the left, then click Parse.</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="parseBtn">Parse</button>
+  <button id="sampleBtn">Load a sample (CardDemo)</button>
+  <button id="clearBtn">Clear</button>
+  <span class="hint" id="timing"></span>
+</div>
+
+<div id="facts"></div>
+
+<div class="cta">
+  <h2>This is the free layer. The real product goes further.</h2>
+  <p>Full estate-wide dependency graphs, plain-English AI documentation grounded in resolved
+  copybook definitions, and a cited Q&amp;A assistant — across your entire codebase, not one pasted file.</p>
+  <a class="btn" href="../demo/ask/">See the live Q&amp;A demo →</a>
+</div>
+
+<footer>
+  <span><b style="color:var(--amber)">//</b>MAINFRAME·LORE</span>
+  <span>PARSED CLIENT-SIDE · NOTHING UPLOADED · mainframelore.com</span>
+</footer>
+</div>
+
+<script>
+// ---- Structural COBOL extractor (JS port of estatecore/cobol_parser.py) ----
+// Same regex logic as the Python parser used across the whole product.
+// Runs entirely in this tab — nothing here is sent anywhere.
+
+const WORD = "[A-Za-z0-9][A-Za-z0-9-]*";
+const RE = {
+  division: new RegExp(`^\\s*(IDENTIFICATION|ENVIRONMENT|DATA|PROCEDURE)\\s+DIVISION`, "i"),
+  programId: new RegExp(`PROGRAM-ID\\s*\\.?\\s*(${WORD})?`, "i"),
+  copy: new RegExp(`\\bCOPY\\s+(${WORD})`, "ig"),
+  call: new RegExp(`\\bCALL\\s+(?:'(${WORD})'|"(${WORD})"|(${WORD}))`, "ig"),
+  select: new RegExp(`\\bSELECT\\s+(?:OPTIONAL\\s+)?(${WORD})`, "i"),
+  assign: new RegExp(`\\bASSIGN\\s+TO\\s+(?:'([^']+)'|(${WORD}))`, "i"),
+  para: new RegExp(`^(${WORD})(\\s+SECTION)?\\s*\\.`, "i"),
+  perform: new RegExp(`\\bPERFORM\\s+(${WORD})`, "ig"),
+  goto: new RegExp(`\\bGO\\s+TO\\s+(${WORD})`, "ig"),
+  sqlTable: new RegExp(`\\b(?:FROM|INTO|UPDATE|JOIN|TABLE)\\s+(${WORD}(?:\\.${WORD})?)`, "ig"),
+  cicsCmd: new RegExp(`EXEC\\s+CICS\\s+(\\w+(?:\\s+\\w+)?)`, "i"),
+};
+const PERFORM_NOISE = new Set(["VARYING", "UNTIL", "TIMES", "WITH", "TEST", "THRU", "THROUGH"]);
+
+function looksFixedFormat(lines) {
+  let votes = 0;
+  const sample = lines.slice(0, 200);
+  for (const line of sample) {
+    if (line.length > 6 && "*-/ ".includes(line[6]) && (line.slice(0, 6).trim() === "" || /^\d+$/.test(line.slice(0, 6)))) {
+      votes++;
+    }
+  }
+  return votes > sample.length * 0.7;
+}
+
+function normalize(text) {
+  const raw = text.split(/\r?\n/);
+  const fixed = looksFixedFormat(raw);
+  return raw.map(line => {
+    if (fixed) {
+      if (line.length < 7) return "";
+      const indicator = line[6];
+      if (indicator === "*" || indicator === "/") return "";
+      return (line.slice(7, 72) || "").trimEnd();
+    }
+    const s = line.trimStart();
+    if (s.startsWith("*>") || s.startsWith("*")) return "";
+    return line.trimEnd();
+  });
+}
+
+function parseCobol(text) {
+  const lines = normalize(text.slice(0, 60000));
+  const prog = {
+    programId: null, copies: [], calls: [], files: [], sqlTables: [],
+    cicsCommands: [], paragraphs: [], divisions: {}, lineCount: lines.length,
+  };
+  let inProcedure = false, currentPara = null, sqlBuf = null, pendingSelect = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const lineNo = i + 1;
+    const code = lines[i];
+    if (!code.trim()) continue;
+    let stripped = code.trim();
+
+    const divM = code.match(RE.division);
+    if (divM) {
+      const name = divM[1].toUpperCase();
+      prog.divisions[name] = lineNo;
+      inProcedure = name === "PROCEDURE";
+      continue;
+    }
+
+    if (prog.programId === null) {
+      const pidM = code.match(RE.programId);
+      if (pidM) {
+        if (pidM[1]) {
+          prog.programId = pidM[1].toUpperCase();
+        } else if (i + 1 < lines.length) {
+          const nextM = lines[i + 1].trim().match(new RegExp(`^(${WORD})`));
+          if (nextM) prog.programId = nextM[1].toUpperCase();
+        }
+      }
+    }
+
+    if (sqlBuf !== null) {
+      sqlBuf += " " + stripped;
+      if (/END-EXEC/i.test(stripped)) {
+        let m;
+        const re = new RegExp(RE.sqlTable.source, "ig");
+        while ((m = re.exec(sqlBuf)) !== null) {
+          const t = m[1].toUpperCase();
+          if (!t.startsWith("WS-") && !t.startsWith("DCL")) prog.sqlTables.push(t);
+        }
+        sqlBuf = null;
+      }
+      continue;
+    }
+    if (/EXEC\s+SQL/i.test(code)) {
+      sqlBuf = stripped;
+      if (/END-EXEC/i.test(stripped)) {
+        let m; const re = new RegExp(RE.sqlTable.source, "ig");
+        while ((m = re.exec(sqlBuf)) !== null) prog.sqlTables.push(m[1].toUpperCase());
+        sqlBuf = null;
+      }
+      continue;
+    }
+
+    const cicsM = code.match(RE.cicsCmd);
+    if (cicsM) {
+      const cmd = cicsM[1].toUpperCase();
+      if (!prog.cicsCommands.includes(cmd)) prog.cicsCommands.push(cmd);
+    }
+
+    { let m; const re = new RegExp(RE.copy.source, "ig");
+      while ((m = re.exec(code)) !== null) prog.copies.push({ name: m[1].toUpperCase(), line: lineNo }); }
+
+    { let m; const re = new RegExp(RE.call.source, "ig");
+      while ((m = re.exec(code)) !== null) {
+        const target = (m[1] || m[2] || m[3]).toUpperCase();
+        prog.calls.push({ target, line: lineNo });
+        if (currentPara) currentPara.calls.push(target);
+      } }
+
+    if (!inProcedure) {
+      const selM = code.match(RE.select);
+      if (selM && selM[1].toUpperCase() !== "OPTIONAL") {
+        pendingSelect = { selectName: selM[1].toUpperCase(), assignTo: null, line: lineNo };
+        prog.files.push(pendingSelect);
+      }
+      const asgM = code.match(RE.assign);
+      if (asgM && pendingSelect) {
+        pendingSelect.assignTo = (asgM[1] || asgM[2]).toUpperCase();
+        pendingSelect = null;
+      }
+      continue;
+    }
+
+    const paraM = stripped.match(RE.para);
+    const leadingSpace = code.length - code.trimStart().length;
+    if (paraM && leadingSpace <= 3) {
+      if (currentPara) currentPara.endLine = lineNo - 1;
+      currentPara = { name: paraM[1].toUpperCase(), line: lineNo, endLine: 0,
+                       performs: [], gotos: [], calls: [], isSection: !!paraM[2] };
+      prog.paragraphs.push(currentPara);
+      stripped = stripped.slice(paraM[0].length);
+    }
+
+    if (currentPara) {
+      let m; const pre = new RegExp(RE.perform.source, "ig");
+      while ((m = pre.exec(stripped)) !== null) {
+        const t = m[1].toUpperCase();
+        if (!PERFORM_NOISE.has(t) && !/^\d+$/.test(t)) currentPara.performs.push(t);
+      }
+      const gre = new RegExp(RE.goto.source, "ig");
+      while ((m = gre.exec(stripped)) !== null) currentPara.gotos.push(m[1].toUpperCase());
+    }
+  }
+  if (currentPara) currentPara.endLine = lines.length;
+  return prog;
+}
+
+// ---- Rendering ----
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightSource(text, prog) {
+  const lines = text.split(/\r?\n/);
+  const paraNames = new Set(prog.paragraphs.map(p => p.name));
+  const copyNames = new Set(prog.copies.map(c => c.name));
+  const callNames = new Set(prog.calls.map(c => c.target));
+  const wordRe = new RegExp(WORD, "g");
+  return lines.map(line => {
+    let out = escapeHtml(line);
+    out = out.replace(new RegExp(`\\b(${WORD})\\b`, "g"), (full, word) => {
+      const up = word.toUpperCase();
+      if (paraNames.has(up) && line.trim().toUpperCase().startsWith(up)) return `<span class="tk-para">${full}</span>`;
+      if (copyNames.has(up)) return `<span class="tk-copy">${full}</span>`;
+      if (callNames.has(up)) return `<span class="tk-call">${full}</span>`;
+      if (["PERFORM", "GO", "TO", "COPY", "CALL", "IF", "ELSE", "END-IF", "MOVE", "EXEC", "END-EXEC"].includes(up))
+        return `<span class="tk-kw">${full}</span>`;
+      return full;
+    });
+    return out;
+  }).join("\n");
+}
+
+function renderFacts(prog) {
+  const el = document.getElementById("facts");
+  const card = (tag, big, items, emptyMsg) => `
+    <div class="fact-card">
+      <span class="tag">${tag}</span>
+      <div class="big">${big}</div>
+      ${items.length ? `<ul>${items.slice(0, 8).map(i => `<li>${i}</li>`).join("")}</ul>${items.length > 8 ? `<div class="empty-note">+${items.length - 8} more</div>` : ""}`
+        : `<p class="empty-note" style="margin-top:8px">${emptyMsg}</p>`}
+    </div>`;
+
+  let html = `<div class="fact-grid">`;
+  html += card("PROGRAM-ID", prog.programId || "not found", [], prog.programId ? `${prog.lineCount} lines analyzed` : "Not a valid COBOL program header, or PROGRAM-ID not detected");
+  html += card("COPYBOOKS", prog.copies.length, [...new Set(prog.copies.map(c => `<b>${c.name}</b> @ line ${c.line}`))], "No COPY statements found");
+  html += card("CALLS", prog.calls.length, [...new Set(prog.calls.map(c => `<b>${c.target}</b> @ line ${c.line}`))], "No CALL statements found");
+  html += card("FILES (SELECT/ASSIGN)", prog.files.length, prog.files.map(f => `<b>${f.selectName}</b> → ${f.assignTo || "?"}`), "No file SELECT clauses found");
+  html += card("SQL TABLES", prog.sqlTables.length, [...new Set(prog.sqlTables)], "No EXEC SQL blocks found");
+  html += card("CICS COMMANDS", prog.cicsCommands.length, prog.cicsCommands, "No EXEC CICS blocks found");
+  html += `</div>`;
+
+  if (prog.paragraphs.length) {
+    html += `<div class="para-flow"><span class="tag">Paragraph flow (${prog.paragraphs.length} paragraphs)</span>`;
+    for (const p of prog.paragraphs.slice(0, 25)) {
+      const targets = [...new Set(p.performs)].slice(0, 6);
+      html += `<div class="para-row"><span class="pname">${p.name}</span><span class="parrow">performs →</span>
+        <span class="ptargets">${targets.join(", ") || "<i>(none)</i>"}</span></div>`;
+    }
+    if (prog.paragraphs.length > 25) html += `<div class="empty-note" style="margin-top:8px">+${prog.paragraphs.length - 25} more paragraphs</div>`;
+    html += `</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function runParse() {
+  const text = document.getElementById("input").value;
+  const timing = document.getElementById("timing");
+  if (!text.trim()) {
+    document.getElementById("sourceView").textContent = "Paste some COBOL first.";
+    document.getElementById("facts").innerHTML = "";
+    return;
+  }
+  const t0 = performance.now();
+  const prog = parseCobol(text);
+  const ms = (performance.now() - t0).toFixed(1);
+  document.getElementById("sourceView").innerHTML = highlightSource(text, prog);
+  renderFacts(prog);
+  timing.textContent = `Parsed ${prog.lineCount} lines in ${ms}ms — entirely in your browser`;
+}
+
+const SAMPLE = `000100 IDENTIFICATION DIVISION.
+000200 PROGRAM-ID. CBTRN02C.
+000300 ENVIRONMENT DIVISION.
+000400 INPUT-OUTPUT SECTION.
+000500 FILE-CONTROL.
+000600     SELECT DALYTRAN-FILE ASSIGN TO DALYTRAN.
+000700     SELECT TRANSACT-FILE ASSIGN TO TRANFILE.
+000800 DATA DIVISION.
+000900 WORKING-STORAGE SECTION.
+001000     COPY CVTRA06Y.
+001100     COPY CVACT01Y.
+001200 PROCEDURE DIVISION.
+001300 0000-DALYTRAN-OPEN.
+001400     PERFORM 9910-DISPLAY-IO-STATUS.
+001500 1000-DALYTRAN-GET-NEXT.
+001600     PERFORM 1500-VALIDATE-TRAN.
+001700 1500-VALIDATE-TRAN.
+001800     PERFORM 1500-A-LOOKUP-XREF.
+001900     PERFORM 1500-B-LOOKUP-ACCT.
+002000     IF WS-VALIDATION-FAIL-REASON = 0
+002100        PERFORM 2000-POST-TRANSACTION
+002200     ELSE
+002300        PERFORM 2500-WRITE-REJECT-REC
+002400     END-IF.
+002500 1500-A-LOOKUP-XREF.
+002600     EXEC CICS READ FILE('XREFFILE') END-EXEC.
+002700 1500-B-LOOKUP-ACCT.
+002800     EXEC SQL
+002900         SELECT ACCT_BAL INTO :WS-BAL FROM ACCOUNT_TABLE
+003000         WHERE ACCT_ID = :WS-ACCT-ID
+003100     END-EXEC.
+003200 2000-POST-TRANSACTION.
+003300     CALL 'CEE3ABD' USING WS-ABEND-CODE.
+003400 2500-WRITE-REJECT-REC.
+003500     PERFORM 9999-ABEND-PROGRAM.
+003600 9999-ABEND-PROGRAM.
+003700     STOP RUN.`;
+
+document.getElementById("parseBtn").addEventListener("click", runParse);
+document.getElementById("clearBtn").addEventListener("click", () => {
+  document.getElementById("input").value = "";
+  document.getElementById("sourceView").textContent = "Paste code on the left, then click Parse.";
+  document.getElementById("facts").innerHTML = "";
+  document.getElementById("timing").textContent = "";
+});
+document.getElementById("sampleBtn").addEventListener("click", () => {
+  document.getElementById("input").value = SAMPLE;
+  runParse();
+});
+</script>
+</body>
+</html>
