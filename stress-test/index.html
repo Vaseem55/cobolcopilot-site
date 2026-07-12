@@ -93,6 +93,14 @@ td.ok{color:var(--cyan);font-family:var(--mono);font-size:.85rem}
 code, .mono{font-family:var(--mono);font-size:.88em;color:var(--bright)}
 .card.warn{border-color:rgba(232,106,92,.35)}
 .card.win{border-color:rgba(79,224,214,.35)}
+.blast{margin-top:28px;display:flex;flex-direction:column;gap:11px}
+.blast-row{display:grid;grid-template-columns:130px 1fr 84px;align-items:center;gap:14px}
+.blast-name{font-family:var(--mono);font-size:.84rem;color:var(--bright);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blast-bar{background:var(--panel2);border-radius:6px;height:22px;overflow:hidden;border:1px solid var(--line)}
+.blast-fill{display:block;height:100%;background:linear-gradient(90deg,var(--amber-dim),var(--amber));border-radius:6px 0 0 6px}
+.blast-count{font-family:var(--mono);font-size:.8rem;color:var(--slate)}
+.stat-line{margin-top:22px;font-family:var(--mono);font-size:.85rem;color:var(--slate)}
+@media (max-width:600px){ .blast-row{grid-template-columns:88px 1fr 64px;gap:8px} .blast-name{font-size:.72rem} .blast-count{font-size:.7rem} }
 .cta{text-align:center;padding:60px 0}
 .btn{display:inline-block;background:var(--amber);color:var(--ink);font-family:var(--mono);font-size:.92rem;
   padding:13px 24px;border-radius:6px;font-weight:500;text-decoration:none;
@@ -156,6 +164,29 @@ footer{border-top:1px solid var(--line);padding:30px 0;font-size:.82rem;color:#5
   </table>
   <p style="margin-top:16px;font-size:.92rem">Ran on a laptop. No mainframe access, no upload to us required to reproduce — same pipeline that
   runs on every estate we're handed.</p>
+</div>
+</section>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">The dependency map</p>
+  <h2>One copybook touches 460 of 2,131 programs</h2>
+  <p>kello has no JCL — it's a Windows/Micro Focus shop, not classic mainframe batch — so there's no
+  job-level estate map like CardDemo's. What it has instead is copybook fan-out most estates only
+  discover the hard way: change one shared field definition and hundreds of programs are affected.
+  This is the real, unfiltered dependency graph — top copybooks ranked by how many programs <code>COPY</code>
+  them.</p>
+  <div class="blast">
+    <div class="blast-row"><span class="blast-name">DSLANG</span><span class="blast-bar"><span class="blast-fill" style="width:100%"></span></span><span class="blast-count">460 programs</span></div>
+    <div class="blast-row"><span class="blast-name">IMPRESSORA</span><span class="blast-bar"><span class="blast-fill" style="width:72%"></span></span><span class="blast-count">331 programs</span></div>
+    <div class="blast-row"><span class="blast-name">CONDENSA</span><span class="blast-bar"><span class="blast-fill" style="width:45%"></span></span><span class="blast-count">206 programs</span></div>
+    <div class="blast-row"><span class="blast-name">DESCONDENSA</span><span class="blast-bar"><span class="blast-fill" style="width:45%"></span></span><span class="blast-count">205 programs</span></div>
+    <div class="blast-row"><span class="blast-name">CGPW001</span><span class="blast-bar"><span class="blast-fill" style="width:34%"></span></span><span class="blast-count">158 programs</span></div>
+    <div class="blast-row"><span class="blast-name">CGPX001</span><span class="blast-bar"><span class="blast-fill" style="width:34%"></span></span><span class="blast-count">158 programs</span></div>
+    <div class="blast-row"><span class="blast-name">LOGACESS</span><span class="blast-bar"><span class="blast-fill" style="width:30%"></span></span><span class="blast-count">139 programs</span></div>
+    <div class="blast-row"><span class="blast-name">CAPW001</span><span class="blast-bar"><span class="blast-fill" style="width:28%"></span></span><span class="blast-count">130 programs</span></div>
+  </div>
+  <p class="stat-line">591 distinct copybooks referenced · 32,632 COPY relationships total · 402 copybooks shared by 3+ programs</p>
 </div>
 </section>
 
