@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stress-tested at scale — MainframeLore</title>
+<meta name="description" content="We fed MainframeLore a real 2,131-program legacy COBOL estate — 48x our demo corpus. It survived, and found a bug in itself along the way.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://mainframelore.com/stress-test/">
+<meta property="og:title" content="2,131 real COBOL programs. One self-found bug. — MainframeLore">
+<meta property="og:description" content="We stress-tested MainframeLore against a real, GPL-licensed 2,131-program legacy estate — 48x the size of our public demo. Here's exactly what happened, including the bug it found in itself.">
+<meta property="og:image" content="https://mainframelore.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="2,131 real COBOL programs. One self-found bug. — MainframeLore">
+<meta name="twitter:description" content="We stress-tested MainframeLore against a real, GPL-licensed 2,131-program legacy estate — 48x the size of our public demo.">
+<meta name="twitter:image" content="https://mainframelore.com/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#090C11; --panel:#141A22; --panel2:#1A2230; --line:#25313F;
+  --amber:#E8A33D; --amber-dim:#8A6524;
+  --cyan:#4FE0D6; --cyan-dim:#1F6D67;
+  --slate:#8FA0AF; --bright:#EEF3F7;
+  --red:#E86A5C;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 12% -10%, rgba(232,163,61,.10), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 90% 10%, rgba(79,224,214,.10), transparent 60%),
+    var(--ink);
+  background-attachment:fixed;
+  color:var(--slate);font-family:var(--sans);font-size:17px;line-height:1.65;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.4;
+  background-image:
+    linear-gradient(rgba(143,160,175,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143,160,175,.05) 1px, transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 70% 50% at 50% 0%, #000 20%, transparent 75%);
+}
+a{color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.wrap{max-width:900px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+h1,h2{font-family:var(--serif);color:var(--bright);font-weight:600;line-height:1.2}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);
+  display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px 1px var(--amber)}
+nav{display:flex;justify-content:space-between;align-items:center;padding:18px 0;position:sticky;top:0;z-index:20;
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  background:rgba(9,12,17,.62);border-bottom:1px solid rgba(37,49,63,.7)}
+nav .wrap{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:900px;padding:0 24px}
+.logo{font-family:var(--mono);font-weight:500;color:var(--bright);font-size:1rem}
+.logo b{color:var(--amber);text-shadow:0 0 10px rgba(232,163,61,.6)}
+nav a.back{color:var(--slate);font-size:.9rem;text-decoration:none}
+nav a.back:hover{color:var(--cyan)}
+header{padding:70px 0 20px}
+header h1{font-size:clamp(1.9rem,4vw,2.6rem);margin-bottom:14px}
+header p{max-width:660px;font-size:1.08rem}
+section{padding:50px 0;border-top:1px solid var(--line)}
+section h2{font-size:1.5rem;margin-bottom:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:28px 30px;margin-top:20px;
+  box-shadow:0 20px 50px -30px rgba(0,0,0,.6)}
+.card h3{font-family:var(--serif);color:var(--bright);font-size:1.15rem;margin-bottom:10px}
+.card p{font-size:.98rem;color:var(--slate)}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:24px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+.stat .n{font-family:var(--serif);font-size:2.1rem;color:var(--bright);font-weight:600;line-height:1}
+.stat .n span{color:var(--cyan);font-size:1.2rem}
+.stat .label{margin-top:8px;font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--slate)}
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.94rem}
+th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);font-weight:500}
+td:first-child{color:var(--bright);font-family:var(--mono);font-size:.88rem}
+td.ok{color:var(--cyan);font-family:var(--mono);font-size:.85rem}
+.timeline{margin-top:24px}
+.tl-item{display:flex;gap:20px;padding:18px 0;border-top:1px solid var(--line)}
+.tl-item:first-child{border-top:none}
+.tl-when{font-family:var(--mono);font-size:.8rem;color:var(--amber);min-width:110px;flex-shrink:0;padding-top:2px}
+.tl-body h3{font-family:var(--serif);color:var(--bright);font-size:1.05rem;margin-bottom:6px}
+.tl-body p{font-size:.96rem}
+.bad{color:var(--red)}
+.good{color:var(--cyan)}
+code, .mono{font-family:var(--mono);font-size:.88em;color:var(--bright)}
+.card.warn{border-color:rgba(232,106,92,.35)}
+.card.win{border-color:rgba(79,224,214,.35)}
+.cta{text-align:center;padding:60px 0}
+.btn{display:inline-block;background:var(--amber);color:var(--ink);font-family:var(--mono);font-size:.92rem;
+  padding:13px 24px;border-radius:6px;font-weight:500;text-decoration:none;
+  box-shadow:0 0 0 1px rgba(232,163,61,.4),0 4px 20px -4px rgba(232,163,61,.5)}
+.btn.ghost{background:transparent;color:var(--bright);box-shadow:0 0 0 1px var(--line)}
+.cta .btn{margin:0 8px}
+footer{border-top:1px solid var(--line);padding:30px 0;font-size:.82rem;color:#5c6b79;font-family:var(--mono);
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+@media (max-width:700px){ section{padding:36px 0} header{padding:50px 0 10px} .stat-grid{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<nav>
+<div class="wrap">
+  <span class="logo"><b>//</b>MAINFRAME·LORE</span>
+  <a class="back" href="../">← Back to site</a>
+</div>
+</nav>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Stress-tested, not just demoed</p>
+  <h1>We fed it a real 2,131-program legacy estate. It found a bug in itself.</h1>
+  <p>Our public demo (CardDemo) is 44 programs — a clean, well-behaved AWS reference app. Real mid-tier
+  bank and insurer estates aren't clean. They're decades old, thousands of programs, full of copy-pasted
+  code nobody's touched since the author retired. So we went and found one of those to test against —
+  and used it honestly, warts and all.</p>
+</header>
+</div>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">The corpus</p>
+  <h2>A real, 27-year-old production system — not another curated demo</h2>
+  <div class="card">
+    <h3>kello — Kello Imagens Business Operations Management System</h3>
+    <p>A real Brazilian business/financial system (checks, payments, accounting) built 1998–2004, later
+    archived as open source under <strong style="color:var(--bright)">GPL-3.0</strong> by its author.
+    No relation to MainframeLore or any customer — we picked it specifically because it's public, properly
+    licensed, and nothing like our own tidy demo corpus.</p>
+    <p style="margin-top:14px"><a href="https://github.com/paulohl/kello" target="_blank" rel="noopener">github.com/paulohl/kello →</a></p>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><div class="n">2,131</div><div class="label">COBOL programs</div></div>
+    <div class="stat"><div class="n">3,879</div><div class="label">Copybooks</div></div>
+    <div class="stat"><div class="n">12,499</div><div class="label">Total files in export</div></div>
+    <div class="stat"><div class="n"><span>48x</span></div><div class="label">Size of our public demo</div></div>
+  </div>
+</div>
+</section>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">The run</p>
+  <h2>Full structural pipeline, zero LLM cost, under 5 minutes</h2>
+  <table>
+    <tr><th>Stage</th><th>Time</th><th>Result</th></tr>
+    <tr><td>Ingest &amp; classify</td><td>4m 21s</td><td class="ok">12,499 files classified — including ~6,500 compiled binaries/listings mixed into the export, correctly filtered as noise, zero crashes</td></tr>
+    <tr><td>Doc + flowchart generation</td><td>~20s</td><td class="ok">2,131 program pages, structural facts only (no AI calls)</td></tr>
+    <tr><td>Q&amp;A indexing</td><td>5.8s</td><td class="ok">65,569 searchable chunks with citations</td></tr>
+  </table>
+  <p style="margin-top:16px;font-size:.92rem">Ran on a laptop. No mainframe access, no upload to us required to reproduce — same pipeline that
+  runs on every estate we're handed.</p>
+</div>
+</section>
+
+<section>
+<div class="wrap">
+  <p class="eyebrow">What we found</p>
+  <h2>The honest part</h2>
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-when">FIRST RUN</div>
+      <div class="tl-body">
+        <h3 class="bad">628 of 2,131 programs got documented. The rest vanished silently.</h3>
+        <p>Real legacy shops copy-paste a template file and never update the internal <code>PROGRAM-ID</code>.
+        In this estate, <strong style="color:var(--bright)">39 completely different source files</strong> —
+        different logic, different purpose — all declared <code>PROGRAM-ID. GALHOCOD050.</code> Our doc
+        generator keyed each output page by that name. Every duplicate silently overwrote the last.
+        No error, no warning — just missing documentation for 70% of a real estate.</p>
+      </div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-when">THE FIX</div>
+      <div class="tl-body">
+        <h3 class="good">Every physical file gets its own page, always.</h3>
+        <p>Pages are now keyed by the actual file, not the name it happens to claim. When two files
+        collide on the same <code>PROGRAM-ID</code>, both get documented (<code>NAME</code>,
+        <code>NAME~2</code>, ...) with a visible banner explaining the collision instead of hiding it.
+        Re-ran the same estate: <strong style="color:var(--bright)">2,131 of 2,131</strong> programs
+        documented.</p>
+      </div>
+    </div>
+  </div>
+  <div class="card win" style="margin-top:28px">
+    <h3>Why we're posting this instead of hiding it</h3>
+    <p>A tool that claims to document "undocumented mainframes" and then silently drops 70% of a messy
+    real estate isn't safe to sell. We'd rather find that on a public GPL repo before a client finds it
+    on their own source. Parsed, not guessed — including about our own bugs.</p>
+  </div>
+</div>
+</section>
+
+<div class="wrap cta">
+  <h2 style="margin-bottom:18px">See the structural parser for yourself</h2>
+  <a class="btn" href="../try/">Paste your own COBOL →</a>
+  <a class="btn ghost" href="../security/">Read the security page</a>
+</div>
+
+<div class="wrap">
+<footer>
+  <span><b style="color:var(--amber)">//</b>MAINFRAME·LORE</span>
+  <span>PARSED, NOT GUESSED · EXPORT-BASED · YOU KEEP THE OUTPUT</span>
+</footer>
+</div>
+</body>
+</html>
