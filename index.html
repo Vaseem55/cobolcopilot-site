@@ -90,45 +90,12 @@ nav .links a{color:var(--slate);margin-left:26px;font-size:.92rem}
 
 /* hero */
 .hero{padding:80px 0 100px;border-top:none;position:relative}
-
-/* 3d scene: legacy terminal -> modern doc, the whole page's thesis in one glance */
-.scene{position:absolute;right:-20px;top:290px;width:400px;height:260px;perspective:1400px;
-  pointer-events:none;z-index:0;opacity:.55}
-.scene3d{position:relative;width:100%;height:100%;transform-style:preserve-3d;display:flex;
-  align-items:center;justify-content:space-between}
-.slab{width:172px;height:208px;border-radius:8px;transform-style:preserve-3d;position:relative;flex-shrink:0}
-.slab.legacy{background:#0A140D;border:1px solid rgba(127,176,105,.4);
-  box-shadow:inset 0 0 30px rgba(127,176,105,.08),0 20px 50px -25px rgba(0,0,0,.8);
-  animation:floatSlab 9s ease-in-out infinite;transform:rotateY(14deg) rotateX(4deg)}
-.slab.modern{background:var(--panel);border:1px solid rgba(79,224,214,.4);
-  box-shadow:inset 0 0 30px rgba(79,224,214,.1),0 20px 50px -25px rgba(0,0,0,.8);
-  animation:floatSlab 9s ease-in-out infinite 1.2s;transform:rotateY(-14deg) rotateX(4deg)}
-@keyframes floatSlab{0%,100%{translate:0 0}50%{translate:0 -9px}}
-.slab-tag{position:absolute;top:-24px;left:0;font-family:var(--mono);font-size:.68rem;
-  letter-spacing:.1em;color:var(--slate)}
-.slab.modern .slab-tag{color:var(--cyan)}
-.legacy-lines{padding:16px 14px;font-family:var(--mono);font-size:.6rem;line-height:1.9;
-  color:#4A6B3A;white-space:pre;overflow:hidden}
-.legacy-lines b{color:#7FB069;font-weight:400}
-.slab.legacy::after{content:"";position:absolute;inset:0;border-radius:8px;pointer-events:none;
-  background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.25) 3px);
-  opacity:.5}
-.modern-card{padding:18px 16px}
-.modern-bar{height:9px;border-radius:3px;background:linear-gradient(90deg,var(--amber),rgba(232,163,61,.3));
-  margin-bottom:14px;width:70%}
-.modern-line{height:6px;border-radius:2px;background:rgba(238,243,247,.16);margin-bottom:9px}
-.modern-line.short{width:60%}
-.modern-cite{margin-top:14px;font-family:var(--mono);font-size:.6rem;color:var(--cyan-dim)}
-.modern-dot{position:absolute;top:16px;right:16px;width:6px;height:6px;border-radius:50%;
-  background:var(--cyan);box-shadow:0 0 8px 2px rgba(79,224,214,.9);animation:pulse 1.6s ease-in-out infinite}
-.beam{position:relative;width:60px;height:2px;flex-shrink:0;background:linear-gradient(90deg,rgba(127,176,105,.5),rgba(79,224,214,.6))}
-.beam .spark{position:absolute;top:50%;left:0;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;
-  background:var(--cyan);box-shadow:0 0 10px 3px rgba(79,224,214,.9);
-  animation:travel 2.6s linear infinite;opacity:0}
-.beam .spark:nth-child(2){animation-delay:.65s}
-.beam .spark:nth-child(3){animation-delay:1.3s}
-.beam .spark:nth-child(4){animation-delay:1.95s}
-@keyframes travel{0%{left:0;opacity:0}8%{opacity:1}92%{opacity:1}100%{left:100%;opacity:0}}
+.hero-top{display:grid;grid-template-columns:1.1fr 1fr;gap:44px;align-items:center;margin-bottom:64px}
+.hero-video{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;
+  border:1px solid var(--line);box-shadow:0 30px 80px -30px rgba(0,0,0,.8),0 0 60px -20px rgba(79,224,214,.15)}
+.hero-video video{width:100%;height:100%;object-fit:cover;display:block;background:var(--ink)}
+@media (max-width:960px){.hero-video{display:none}}
+@media (max-width:860px){.hero-top{grid-template-columns:1fr;margin-bottom:40px}}
 .hero h1{font-size:clamp(2.05rem,4.6vw,3.25rem);max-width:840px}
 .hero h1 em{font-style:italic;color:var(--amber);text-shadow:0 0 22px rgba(232,163,61,.35)}
 .hero p.lede{max-width:640px;margin:22px 0 30px;font-size:1.12rem}
@@ -263,12 +230,8 @@ footer .mono{font-family:var(--mono);font-size:.78rem;color:#5c6b79}
   .caret,.eyebrow::before,.pane.doc .pane-label b::before,.translate::after{animation:none}
   html{scroll-behavior:auto}
   .reveal{opacity:1;transform:none;transition:none}
-  .scene{display:none}
   .translate,.cell,.tier{transition:none}
   code.cobol.run .ln,.doc-body.run{animation:none;transform:none;opacity:1;filter:none}
-}
-@media (max-width:960px){
-  .scene{display:none}
 }
 </style>
 </head>
@@ -299,49 +262,29 @@ footer .mono{font-family:var(--mono);font-size:.78rem;color:#5c6b79}
 
 <div class="wrap">
 <header class="hero">
-  <div class="scene" aria-hidden="true">
-    <div class="scene3d">
-      <div class="slab legacy">
-        <span class="slab-tag">1985</span>
-        <div class="legacy-lines"><b>IDENTIFICATION</b> DIVISION.
-<b>PROGRAM-ID.</b> XXXXXXXX.
-    05  WS-FLG-XX PIC X.
-      88  XX-COND VALUE 'Y'.
-<b>PROCEDURE</b> DIVISION.
-    <b>PERFORM</b> XXXX-PARA.
-    <b>IF</b> WS-XXXX = 1
-       <b>GO TO</b> XXXX-EXIT.</div>
+  <div class="hero-top">
+    <div class="hero-text">
+      <p class="eyebrow">Documentation for undocumented mainframes</p>
+      <h1>The people who understand this code are retiring. <em>The documentation never existed.</em></h1>
+      <p class="lede">MainframeLore ingests a source export of your COBOL, copybooks and JCL and produces
+      plain-English documentation, flowcharts, dependency maps and a Q&amp;A assistant —
+      without ever connecting to your mainframe.</p>
+      <div class="ctas">
+        <a class="btn" href="mailto:vaseemakrams55@gmail.com?subject=MainframeLore%20pilot">Get your estate assessed</a>
+        <a class="btn ghost" href="#demo">See a real example ↓</a>
       </div>
-      <div class="beam">
-        <span class="spark"></span><span class="spark"></span><span class="spark"></span><span class="spark"></span>
-      </div>
-      <div class="slab modern">
-        <span class="slab-tag">TODAY</span>
-        <div class="modern-dot"></div>
-        <div class="modern-card">
-          <div class="modern-bar"></div>
-          <div class="modern-line"></div>
-          <div class="modern-line"></div>
-          <div class="modern-line short"></div>
-          <div class="modern-cite">@ CBTRN02C:210</div>
-        </div>
-      </div>
+      <p style="margin-top:16px;font-size:.9rem">
+        <a href="try/">Paste your own COBOL →</a>
+        <span style="color:var(--line);margin:0 10px">·</span>
+        <a href="stress-test/">Stress-tested against a real 2,131-program estate →</a>
+      </p>
+    </div>
+    <div class="hero-video" aria-hidden="true">
+      <video id="heroVideo" autoplay muted loop playsinline poster="hero-transform-poster.jpg">
+        <source src="hero-transform.mp4" type="video/mp4">
+      </video>
     </div>
   </div>
-  <p class="eyebrow">Documentation for undocumented mainframes</p>
-  <h1>The people who understand this code are retiring. <em>The documentation never existed.</em></h1>
-  <p class="lede">MainframeLore ingests a source export of your COBOL, copybooks and JCL and produces
-  plain-English documentation, flowcharts, dependency maps and a Q&amp;A assistant —
-  without ever connecting to your mainframe.</p>
-  <div class="ctas">
-    <a class="btn" href="mailto:vaseemakrams55@gmail.com?subject=MainframeLore%20pilot">Get your estate assessed</a>
-    <a class="btn ghost" href="#demo">See a real example ↓</a>
-  </div>
-  <p style="margin-top:16px;font-size:.9rem">
-    <a href="try/">Paste your own COBOL →</a>
-    <span style="color:var(--line);margin:0 10px">·</span>
-    <a href="stress-test/">Stress-tested against a real 2,131-program estate →</a>
-  </p>
 
   <div class="translate" id="demo">
     <div class="pane src">
@@ -506,6 +449,8 @@ footer .mono{font-family:var(--mono);font-size:.78rem;color:#5c6b79}
   var el = document.getElementById("typed"), caret = document.getElementById("caret");
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var codeEl = document.getElementById("cobolCode"), docEl = document.getElementById("docBody");
+  var heroVideo = document.getElementById("heroVideo");
+  if (heroVideo && reduced) { heroVideo.removeAttribute("autoplay"); heroVideo.pause(); }
   if (reduced) { el.textContent = text; if (caret) caret.remove(); }
   else {
     var i = 0, started = false;
